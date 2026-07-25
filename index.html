@@ -512,6 +512,9 @@
 
                 <label for="totalGroups">Total Groups:</label>
                 <input type="number" id="totalGroups" value="10" min="1" max="100">
+
+                <label for="toneVol">CW Volume (%):</label>
+                <input type="number" id="toneVol" value="35" min="5" max="100" step="5">
             </div>
         </div>
 
@@ -637,6 +640,7 @@
     const inputPitchHz = document.getElementById('pitchHz');
     const inputGroupSize = document.getElementById('groupSize');
     const inputTotalGroups = document.getElementById('totalGroups');
+    const inputToneVol = document.getElementById('toneVol');
 
     async function requestWakeLock() {
         try {
@@ -677,6 +681,7 @@
             pitchHz: inputPitchHz.value,
             groupSize: inputGroupSize.value,
             totalGroups: inputTotalGroups.value,
+            toneVol: inputToneVol.value,
             autoRead: chkAutoRead.checked,
             selectedChars: selectedChars
         };
@@ -710,6 +715,7 @@
             if (savedConfig.pitchHz) inputPitchHz.value = savedConfig.pitchHz;
             if (savedConfig.groupSize) inputGroupSize.value = savedConfig.groupSize;
             if (savedConfig.totalGroups) inputTotalGroups.value = savedConfig.totalGroups;
+            if (savedConfig.toneVol) inputToneVol.value = savedConfig.toneVol;
             if (savedConfig.autoRead !== undefined) chkAutoRead.checked = savedConfig.autoRead;
         }
 
@@ -777,7 +783,7 @@
         chkProsigns.checked = PROSIGNS.every(c => checkboxes.find(cb => cb.value === c)?.checked);
     }
 
-    [inputCharWpm, inputEffWpm, inputStartDelaySec, inputPauseSec, inputPitchHz, inputGroupSize, inputTotalGroups, chkAutoRead].forEach(el => {
+    [inputCharWpm, inputEffWpm, inputStartDelaySec, inputPauseSec, inputPitchHz, inputGroupSize, inputTotalGroups, inputToneVol, chkAutoRead].forEach(el => {
         el.addEventListener('change', saveSettings);
         el.addEventListener('keyup', saveSettings);
     });
@@ -799,6 +805,7 @@
         inputPitchHz.value = 600;
         inputGroupSize.value = 5;
         inputTotalGroups.value = 10;
+        inputToneVol.value = 35;
         chkAutoRead.checked = false;
 
         const checkboxes = charGrid.querySelectorAll('input[type="checkbox"]');
@@ -858,6 +865,7 @@
 
             const utterance = new SpeechSynthesisUtterance(formattedText);
             utterance.rate = 0.9;
+            utterance.volume = 1.0; // Speech stays at max full output
             
             const bestVoice = getBestVoice();
             if (bestVoice) utterance.voice = bestVoice;
@@ -890,10 +898,8 @@
         for (let g = 0; g < groups.length; g++) {
             if (stopRequested) break;
             
-            // Reduced delay prior to each group in full-read mode
             await speakGroup(groups[g], 200);
 
-            // Tightened spacing between groups down to 400ms
             if (g < groups.length - 1 && !stopRequested) {
                 await cancellableSleep(400);
             }
@@ -932,7 +938,7 @@
         });
     }
 
-    function createCharacterBuffer(pattern, dotLen, dashLen, intraGap, freq) {
+    function createCharacterBuffer(pattern, dotLen, dashLen, intraGap, freq, volFraction = 0.35) {
         const sampleRate = audioCtx.sampleRate;
         
         let totalTime = 0;
@@ -955,7 +961,7 @@
             for (let s = 0; s < durationSamples; s++) {
                 if (currentSample + s >= totalSamples) break;
                 
-                let amplitude = 0.8;
+                let amplitude = volFraction; // Scale amplitude to match speech
                 if (s < rampSamples) {
                     amplitude *= (s / rampSamples);
                 } else if (s > durationSamples - rampSamples) {
@@ -1014,7 +1020,10 @@
         const pitchHz = parseFloat(inputPitchHz.value) || 600;
         const groupSize = parseInt(inputGroupSize.value, 10) || 5;
         const totalGroups = parseInt(inputTotalGroups.value, 10) || 10;
+        const toneVolPct = parseFloat(inputToneVol.value) || 35;
         const autoRead = chkAutoRead.checked;
+
+        const volFraction = Math.max(0.01, Math.min(1.0, toneVolPct / 100.0));
 
         if (effWpm > charWpm) {
             alert("Effective speed should be lower than or equal to character speed for Farnsworth spacing.");
@@ -1059,7 +1068,7 @@
                 const char = currentGroup[i];
                 const pattern = MORSE_CODE[char];
                 if (pattern) {
-                    const buf = createCharacterBuffer(pattern, timings.dotLen, timings.dashLen, timings.intraGap, pitchHz);
+                    const buf = createCharacterBuffer(pattern, timings.dotLen, timings.dashLen, timings.intraGap, pitchHz, volFraction);
                     await playBuffer(buf);
                 }
 
