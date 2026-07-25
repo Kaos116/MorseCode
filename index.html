@@ -610,7 +610,7 @@
 
     const DEFAULT_CUSTOM = ["K", "M", "R", "S", "U", "A", "P", "T", "L", "O"];
     const STORAGE_KEY = "farnsworth_morse_config_v1";
-    const VOICE_DELAY_MS = 600; 
+    const VOICE_DELAY_MS = 700; // Increased by 100ms for extra breathing room before voice announcement
 
     let isRunning = false;
     let stopRequested = false;
@@ -865,7 +865,7 @@
 
             const utterance = new SpeechSynthesisUtterance(formattedText);
             utterance.rate = 0.9;
-            utterance.volume = 1.0; // Speech stays at max full output
+            utterance.volume = 1.0;
             
             const bestVoice = getBestVoice();
             if (bestVoice) utterance.voice = bestVoice;
@@ -961,7 +961,7 @@
             for (let s = 0; s < durationSamples; s++) {
                 if (currentSample + s >= totalSamples) break;
                 
-                let amplitude = volFraction; // Scale amplitude to match speech
+                let amplitude = volFraction;
                 if (s < rampSamples) {
                     amplitude *= (s / rampSamples);
                 } else if (s > durationSamples - rampSamples) {
