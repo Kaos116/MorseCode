@@ -487,6 +487,7 @@
                     <li><strong>Build Pool:</strong> Use category checkboxes or toggle individual characters in the selection grid below.</li>
                     <li><strong>Practice:</strong> Click <strong>Start Session</strong> and copy the code by ear.</li>
                     <li><strong>Read After Group:</strong> Enable <strong>Read After Each Group</strong> to reveal and hear voice confirmation after each group. Leave unchecked to hide text until the session ends.</li>
+                    <li><strong>CW Volume:</strong> Adjust <strong>CW Volume (%)</strong> to comfortably balance tone intensity against system text-to-speech levels.</li>
                     <li><strong>Auto-Save:</strong> Your settings save automatically so they are ready next time you open the app.</li>
                 </ul>
             </div>
@@ -610,7 +611,7 @@
 
     const DEFAULT_CUSTOM = ["K", "M", "R", "S", "U", "A", "P", "T", "L", "O"];
     const STORAGE_KEY = "farnsworth_morse_config_v1";
-    const VOICE_DELAY_MS = 700; // Increased by 100ms for extra breathing room before voice announcement
+    const VOICE_DELAY_MS = 700;
 
     let isRunning = false;
     let stopRequested = false;
