@@ -849,6 +849,28 @@
         };
     }
 
+    function speakSingleToken(token) {
+        return new Promise((resolve) => {
+            if (stopRequested) {
+                resolve();
+                return;
+            }
+
+            const spokenWord = SPEECH_PRONUNCIATION[token] || token;
+            const utterance = new SpeechSynthesisUtterance(spokenWord);
+            utterance.rate = 1.0;
+            utterance.volume = 1.0;
+            
+            const bestVoice = getBestVoice();
+            if (bestVoice) utterance.voice = bestVoice;
+
+            utterance.onend = () => resolve();
+            utterance.onerror = () => resolve();
+            
+            window.speechSynthesis.speak(utterance);
+        });
+    }
+
     async function speakGroup(groupString, leadDelayMs = 700) {
         if (stopRequested) return;
 
@@ -862,26 +884,16 @@
 
         const tokenRegex = /<[^>]+>|./g;
         const tokens = groupString.match(tokenRegex) || [];
-        const expandedTokens = tokens.map(t => SPEECH_PRONUNCIATION[t] || t);
 
-        return new Promise((resolve) => {
-            if (stopRequested) {
-                resolve();
-                return;
+        for (let i = 0; i < tokens.length; i++) {
+            if (stopRequested) break;
+
+            await speakSingleToken(tokens[i]);
+
+            if (i < tokens.length - 1 && !stopRequested) {
+                await cancellableSleep(250); // 250ms gap between spoken letters
             }
-
-            const utterance = new SpeechSynthesisUtterance(expandedTokens.join(' '));
-            utterance.rate = 1.0;
-            utterance.volume = 1.0;
-            
-            const bestVoice = getBestVoice();
-            if (bestVoice) utterance.voice = bestVoice;
-
-            utterance.onend = () => resolve();
-            utterance.onerror = () => resolve();
-            
-            window.speechSynthesis.speak(utterance);
-        });
+        }
     }
 
     async function readOutputText() {
@@ -897,8 +909,6 @@
             return;
         }
 
-        const voiceDelayMs = parseFloat(inputVoiceDelaySec.value) * 1000;
-
         stopRequested = false;
         purgeSpeechQueue();
 
@@ -910,7 +920,7 @@
             await speakGroup(groups[g], 200);
 
             if (g < groups.length - 1 && !stopRequested) {
-                await cancellableSleep(400);
+                await cancellableSleep(500);
             }
         }
     }
