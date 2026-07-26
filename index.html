@@ -486,8 +486,8 @@
                     <li><strong>Set Speeds:</strong> Keep <em>Character WPM</em> higher than <em>Effective WPM</em> for Farnsworth spacing.</li>
                     <li><strong>Build Pool:</strong> Use category checkboxes or toggle individual characters in the selection grid below.</li>
                     <li><strong>Practice:</strong> Click <strong>Start Session</strong> and copy the code by ear.</li>
-                    <li><strong>Read After Group:</strong> Enable <strong>Read After Each Group</strong> to reveal and hear voice confirmation after each group. Leave unchecked to hide text until the session ends.</li>
-                    <li><strong>CW Volume:</strong> Adjust <strong>CW Volume (%)</strong> to comfortably balance tone intensity against system text-to-speech levels.</li>
+                    <li><strong>Read After Group:</strong> Enable <strong>Read After Each Group</strong> to reveal and hear voice confirmation after each group.</li>
+                    <li><strong>Voice Timing:</strong> Adjust <strong>Voice Delay</strong> for post-CW delay and <strong>Letter Read Gap</strong> to adjust speech pacing between characters.</li>
                     <li><strong>Auto-Save:</strong> Your settings save automatically so they are ready next time you open the app.</li>
                 </ul>
             </div>
@@ -504,6 +504,12 @@
 
                 <label for="pauseSec">Group Pause (sec):</label>
                 <input type="number" id="pauseSec" value="2.5" step="0.1" min="0">
+
+                <label for="voiceDelaySec">Voice Delay (sec):</label>
+                <input type="number" id="voiceDelaySec" value="0.7" step="0.1" min="0" max="5">
+
+                <label for="letterGapMs">Letter Read Gap (ms):</label>
+                <input type="number" id="letterGapMs" value="100" step="10" min="0" max="1000">
 
                 <label for="pitchHz">Tone Pitch (Hz):</label>
                 <input type="number" id="pitchHz" value="600" step="10" min="200" max="1500">
@@ -611,7 +617,6 @@
 
     const DEFAULT_CUSTOM = ["K", "M", "R", "S", "U", "A", "P", "T", "L", "O"];
     const STORAGE_KEY = "farnsworth_morse_config_v1";
-    const VOICE_DELAY_MS = 700;
 
     let isRunning = false;
     let stopRequested = false;
@@ -638,6 +643,8 @@
     const inputEffWpm = document.getElementById('effWpm');
     const inputStartDelaySec = document.getElementById('startDelaySec');
     const inputPauseSec = document.getElementById('pauseSec');
+    const inputVoiceDelaySec = document.getElementById('voiceDelaySec');
+    const inputLetterGapMs = document.getElementById('letterGapMs');
     const inputPitchHz = document.getElementById('pitchHz');
     const inputGroupSize = document.getElementById('groupSize');
     const inputTotalGroups = document.getElementById('totalGroups');
@@ -679,6 +686,8 @@
             effWpm: inputEffWpm.value,
             startDelaySec: inputStartDelaySec.value,
             pauseSec: inputPauseSec.value,
+            voiceDelaySec: inputVoiceDelaySec.value,
+            letterGapMs: inputLetterGapMs.value,
             pitchHz: inputPitchHz.value,
             groupSize: inputGroupSize.value,
             totalGroups: inputTotalGroups.value,
@@ -713,6 +722,8 @@
             if (savedConfig.effWpm) inputEffWpm.value = savedConfig.effWpm;
             if (savedConfig.startDelaySec) inputStartDelaySec.value = savedConfig.startDelaySec;
             if (savedConfig.pauseSec) inputPauseSec.value = savedConfig.pauseSec;
+            if (savedConfig.voiceDelaySec !== undefined) inputVoiceDelaySec.value = savedConfig.voiceDelaySec;
+            if (savedConfig.letterGapMs !== undefined) inputLetterGapMs.value = savedConfig.letterGapMs;
             if (savedConfig.pitchHz) inputPitchHz.value = savedConfig.pitchHz;
             if (savedConfig.groupSize) inputGroupSize.value = savedConfig.groupSize;
             if (savedConfig.totalGroups) inputTotalGroups.value = savedConfig.totalGroups;
@@ -784,7 +795,7 @@
         chkProsigns.checked = PROSIGNS.every(c => checkboxes.find(cb => cb.value === c)?.checked);
     }
 
-    [inputCharWpm, inputEffWpm, inputStartDelaySec, inputPauseSec, inputPitchHz, inputGroupSize, inputTotalGroups, inputToneVol, chkAutoRead].forEach(el => {
+    [inputCharWpm, inputEffWpm, inputStartDelaySec, inputPauseSec, inputVoiceDelaySec, inputLetterGapMs, inputPitchHz, inputGroupSize, inputTotalGroups, inputToneVol, chkAutoRead].forEach(el => {
         el.addEventListener('change', saveSettings);
         el.addEventListener('keyup', saveSettings);
     });
@@ -803,6 +814,8 @@
         inputEffWpm.value = 10;
         inputStartDelaySec.value = 2.0;
         inputPauseSec.value = 2.5;
+        inputVoiceDelaySec.value = 0.7;
+        inputLetterGapMs.value = 100;
         inputPitchHz.value = 600;
         inputGroupSize.value = 5;
         inputTotalGroups.value = 10;
@@ -843,28 +856,14 @@
         };
     }
 
-    function speakGroup(groupString, leadDelayMs = VOICE_DELAY_MS) {
-        return new Promise(async (resolve) => {
+    function speakToken(spokenText) {
+        return new Promise((resolve) => {
             if (stopRequested) {
                 resolve();
                 return;
             }
 
-            await cancellableSleep(leadDelayMs);
-
-            if (stopRequested) {
-                resolve();
-                return;
-            }
-
-            purgeSpeechQueue();
-
-            const tokenRegex = /<[^>]+>|./g;
-            const tokens = groupString.match(tokenRegex) || [];
-            const spokenTokens = tokens.map(t => SPEECH_PRONUNCIATION[t] || t);
-            const formattedText = spokenTokens.join(' . '); 
-
-            const utterance = new SpeechSynthesisUtterance(formattedText);
+            const utterance = new SpeechSynthesisUtterance(spokenText);
             utterance.rate = 0.9;
             utterance.volume = 1.0;
             
@@ -876,6 +875,34 @@
             
             window.speechSynthesis.speak(utterance);
         });
+    }
+
+    async function speakGroup(groupString, leadDelayMs = 700, letterGapMs = 100) {
+        if (stopRequested) return;
+
+        if (leadDelayMs > 0) {
+            await cancellableSleep(leadDelayMs);
+        }
+
+        if (stopRequested) return;
+
+        purgeSpeechQueue();
+
+        const tokenRegex = /<[^>]+>|./g;
+        const tokens = groupString.match(tokenRegex) || [];
+
+        for (let i = 0; i < tokens.length; i++) {
+            if (stopRequested) break;
+
+            const t = tokens[i];
+            const spokenText = SPEECH_PRONUNCIATION[t] || t;
+            
+            await speakToken(spokenText);
+
+            if (i < tokens.length - 1 && !stopRequested && letterGapMs > 0) {
+                await cancellableSleep(letterGapMs);
+            }
+        }
     }
 
     async function readOutputText() {
@@ -891,6 +918,9 @@
             return;
         }
 
+        const voiceDelayMs = parseFloat(inputVoiceDelaySec.value) * 1000;
+        const letterGapMs = parseInt(inputLetterGapMs.value, 10);
+
         stopRequested = false;
         purgeSpeechQueue();
 
@@ -899,7 +929,7 @@
         for (let g = 0; g < groups.length; g++) {
             if (stopRequested) break;
             
-            await speakGroup(groups[g], 200);
+            await speakGroup(groups[g], 200, letterGapMs);
 
             if (g < groups.length - 1 && !stopRequested) {
                 await cancellableSleep(400);
@@ -969,14 +999,15 @@
                     amplitude *= ((durationSamples - s) / rampSamples);
                 }
 
-                const t = s / sampleRate;
-                channelData[currentSample + s] = amplitude * Math.sin(2 * Math.PI * freq * t);
+                const time = (currentSample + s) / sampleRate;
+                channelData[currentSample + s] = amplitude * Math.sin(2 * Math.PI * freq * time);
             }
 
             currentSample += durationSamples;
 
             if (i < pattern.length - 1) {
-                currentSample += Math.floor(intraGap * sampleRate);
+                const gapSamples = Math.floor(intraGap * sampleRate);
+                currentSample += gapSamples;
             }
         }
 
@@ -985,51 +1016,88 @@
 
     function playBuffer(buffer) {
         return new Promise((resolve) => {
-            if (stopRequested) {
+            if (stopRequested || !audioCtx) {
                 resolve();
                 return;
             }
 
-            currentSourceNode = audioCtx.createBufferSource();
-            currentSourceNode.buffer = buffer;
-            currentSourceNode.connect(audioCtx.destination);
+            const source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(audioCtx.destination);
+            currentSourceNode = source;
 
-            currentSourceNode.onended = () => {
+            source.onended = () => {
                 currentSourceNode = null;
                 resolve();
             };
 
-            currentSourceNode.start();
+            source.start();
         });
     }
 
-    function getRandomItem(arr) {
-        return arr[Math.floor(Math.random() * arr.length)];
+    function setUIState(running) {
+        isRunning = running;
+        btnStart.disabled = running;
+        btnStop.disabled = !running;
+        btnSpeak.disabled = running;
+        
+        if (running) {
+            statusDot.classList.add('active');
+            lblStatus.textContent = "Status: Sending Morse...";
+        } else {
+            statusDot.classList.remove('active');
+            lblStatus.textContent = "Status: Ready";
+        }
     }
 
+    function stopPractice() {
+        stopRequested = true;
+        purgeSpeechQueue();
+
+        if (currentSourceNode) {
+            try {
+                currentSourceNode.stop();
+            } catch(e) {}
+            currentSourceNode = null;
+        }
+
+        releaseWakeLock();
+        setUIState(false);
+    }
+
+    btnStop.addEventListener('click', stopPractice);
+
     async function startPractice() {
-        const pool = txtChars.value.trim().split(/\s+/).filter(c => c.length > 0);
+        const poolText = txtChars.value.trim();
+        const pool = poolText ? poolText.split(/\s+/) : [];
+
         if (pool.length === 0) {
-            alert("Please select at least one character for your practice pool!");
+            alert("Please select at least one character in the grid!");
             return;
         }
 
-        const charWpm = parseFloat(inputCharWpm.value) || 18;
-        const effWpm = parseFloat(inputEffWpm.value) || 10;
-        const startDelaySec = parseFloat(inputStartDelaySec.value) || 2.0;
-        const pauseSec = parseFloat(inputPauseSec.value) || 2.5;
-        const pitchHz = parseFloat(inputPitchHz.value) || 600;
-        const groupSize = parseInt(inputGroupSize.value, 10) || 5;
-        const totalGroups = parseInt(inputTotalGroups.value, 10) || 10;
-        const toneVolPct = parseFloat(inputToneVol.value) || 35;
+        const charWpm = parseFloat(inputCharWpm.value);
+        const effWpm = parseFloat(inputEffWpm.value);
+        const startDelaySec = parseFloat(inputStartDelaySec.value);
+        const pauseSec = parseFloat(inputPauseSec.value);
+        const voiceDelaySec = parseFloat(inputVoiceDelaySec.value);
+        const letterGapMs = parseInt(inputLetterGapMs.value, 10);
+        const pitchHz = parseFloat(inputPitchHz.value);
+        const groupSize = parseInt(inputGroupSize.value, 10);
+        const totalGroups = parseInt(inputTotalGroups.value, 10);
+        const toneVolPercent = parseFloat(inputToneVol.value);
         const autoRead = chkAutoRead.checked;
 
-        const volFraction = Math.max(0.01, Math.min(1.0, toneVolPct / 100.0));
-
         if (effWpm > charWpm) {
-            alert("Effective speed should be lower than or equal to character speed for Farnsworth spacing.");
+            alert("For Farnsworth spacing, Effective WPM should be less than or equal to Character WPM.");
             return;
         }
+
+        stopRequested = false;
+        setUIState(true);
+        txtOutput.value = "";
+
+        await requestWakeLock();
 
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1038,95 +1106,86 @@
             await audioCtx.resume();
         }
 
-        purgeSpeechQueue();
-        stopRequested = false;
-        isRunning = true;
-        await requestWakeLock();
+        const volFraction = Math.max(0.01, Math.min(1.0, toneVolPercent / 100.0));
+        const { dotLen, dashLen, intraGap, charGap } = calculateTimings(charWpm, effWpm);
 
-        btnStart.disabled = true;
-        btnStop.disabled = false;
-        statusDot.classList.add('active');
-        txtOutput.value = "";
+        const preparedBuffers = {};
+        for (const ch of pool) {
+            const pattern = MORSE_CODE[ch];
+            if (pattern) {
+                preparedBuffers[ch] = createCharacterBuffer(pattern, dotLen, dashLen, intraGap, pitchHz, volFraction);
+            }
+        }
 
-        const timings = calculateTimings(charWpm, effWpm);
+        const fullGeneratedSession = [];
+        for (let g = 0; g < totalGroups; g++) {
+            const currentGroup = [];
+            for (let c = 0; c < groupSize; c++) {
+                const randChar = pool[Math.floor(Math.random() * pool.length)];
+                currentGroup.push(randChar);
+            }
+            fullGeneratedSession.push(currentGroup.join(''));
+        }
 
-        lblStatus.textContent = `Status: Waiting ${startDelaySec}s...`;
+        lblStatus.textContent = `Status: Delaying ${startDelaySec}s...`;
         await cancellableSleep(startDelaySec * 1000);
 
-        for (let g = 0; g < totalGroups; g++) {
+        for (let g = 0; g < fullGeneratedSession.length; g++) {
             if (stopRequested) break;
 
+            const groupStr = fullGeneratedSession[g];
             lblStatus.textContent = `Status: Sending Group ${g + 1} of ${totalGroups}`;
 
-            let currentGroup = [];
-            for (let i = 0; i < groupSize; i++) {
-                currentGroup.push(getRandomItem(pool));
-            }
+            const tokenRegex = /<[^>]+>|./g;
+            const characters = groupStr.match(tokenRegex) || [];
 
-            for (let i = 0; i < currentGroup.length; i++) {
+            for (let c = 0; c < characters.length; c++) {
                 if (stopRequested) break;
 
-                const char = currentGroup[i];
-                const pattern = MORSE_CODE[char];
-                if (pattern) {
-                    const buf = createCharacterBuffer(pattern, timings.dotLen, timings.dashLen, timings.intraGap, pitchHz, volFraction);
+                const ch = characters[c];
+                const buf = preparedBuffers[ch];
+
+                if (buf) {
                     await playBuffer(buf);
                 }
 
-                if (i < currentGroup.length - 1 && !stopRequested) {
-                    await cancellableSleep(timings.charGap * 1000);
+                if (c < characters.length - 1 && !stopRequested) {
+                    await cancellableSleep(charGap * 1000);
                 }
             }
 
             if (stopRequested) break;
 
-            const groupString = currentGroup.join('');
-
             if (autoRead) {
-                txtOutput.value += (g === 0 ? '' : ' ') + groupString;
+                txtOutput.value += (txtOutput.value ? " " : "") + groupStr;
                 txtOutput.scrollTop = txtOutput.scrollHeight;
-                await speakGroup(groupString);
-            } else {
-                if (g === totalGroups - 1) {
-                    txtOutput.value += (g === 0 ? '' : ' ') + groupString;
-                } else {
-                    txtOutput.value += groupString + " ";
-                }
+                
+                lblStatus.textContent = `Status: Reading Group ${g + 1}...`;
+                await speakGroup(groupStr, voiceDelaySec * 1000, letterGapMs);
             }
 
-            if (g < totalGroups - 1 && !stopRequested) {
-                lblStatus.textContent = `Status: Pausing (${pauseSec}s)...`;
+            if (g < fullGeneratedSession.length - 1 && !stopRequested) {
+                lblStatus.textContent = `Status: Group Pause (${pauseSec}s)...`;
                 await cancellableSleep(pauseSec * 1000);
             }
         }
 
-        stopPractice();
-    }
-
-    function stopPractice() {
-        stopRequested = true;
-        isRunning = false;
-        releaseWakeLock();
-
-        purgeSpeechQueue();
-
-        if (currentSourceNode) {
-            try {
-                currentSourceNode.stop();
-            } catch (e) {}
-            currentSourceNode = null;
+        if (!autoRead && !stopRequested) {
+            txtOutput.value = fullGeneratedSession.join(' ');
         }
 
-        btnStart.disabled = false;
-        btnStop.disabled = true;
-        statusDot.classList.remove('active');
-        lblStatus.textContent = "Status: Stopped";
+        if (!stopRequested) {
+            lblStatus.textContent = "Status: Session Complete";
+        }
+
+        releaseWakeLock();
+        setUIState(false);
     }
 
     btnStart.addEventListener('click', startPractice);
-    btnStop.addEventListener('click', stopPractice);
 
     buildCharGrid();
 </script>
+
 </body>
 </html>
