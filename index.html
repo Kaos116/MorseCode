@@ -487,7 +487,7 @@
                     <li><strong>Build Pool:</strong> Use category checkboxes or toggle individual characters in the selection grid below.</li>
                     <li><strong>Practice:</strong> Click <strong>Start Session</strong> and copy the code by ear.</li>
                     <li><strong>Read After Group:</strong> Enable <strong>Read After Each Group</strong> to reveal and hear voice confirmation after each group.</li>
-                    <li><strong>Voice Timing:</strong> Adjust <strong>Voice Delay</strong> for post-CW delay and <strong>Letter Read Gap</strong> to adjust speech pacing between characters.</li>
+                    <li><strong>Voice Timing:</strong> Adjust <strong>Voice Delay</strong> to set the pause between the CW tones and spoken confirmation.</li>
                     <li><strong>Auto-Save:</strong> Your settings save automatically so they are ready next time you open the app.</li>
                 </ul>
             </div>
@@ -507,9 +507,6 @@
 
                 <label for="voiceDelaySec">Voice Delay (sec):</label>
                 <input type="number" id="voiceDelaySec" value="0.7" step="0.1" min="0" max="5">
-
-                <label for="letterGapMs">Letter Read Gap (ms):</label>
-                <input type="number" id="letterGapMs" value="100" step="10" min="0" max="1000">
 
                 <label for="pitchHz">Tone Pitch (Hz):</label>
                 <input type="number" id="pitchHz" value="600" step="10" min="200" max="1500">
@@ -644,7 +641,6 @@
     const inputStartDelaySec = document.getElementById('startDelaySec');
     const inputPauseSec = document.getElementById('pauseSec');
     const inputVoiceDelaySec = document.getElementById('voiceDelaySec');
-    const inputLetterGapMs = document.getElementById('letterGapMs');
     const inputPitchHz = document.getElementById('pitchHz');
     const inputGroupSize = document.getElementById('groupSize');
     const inputTotalGroups = document.getElementById('totalGroups');
@@ -687,7 +683,6 @@
             startDelaySec: inputStartDelaySec.value,
             pauseSec: inputPauseSec.value,
             voiceDelaySec: inputVoiceDelaySec.value,
-            letterGapMs: inputLetterGapMs.value,
             pitchHz: inputPitchHz.value,
             groupSize: inputGroupSize.value,
             totalGroups: inputTotalGroups.value,
@@ -723,7 +718,6 @@
             if (savedConfig.startDelaySec) inputStartDelaySec.value = savedConfig.startDelaySec;
             if (savedConfig.pauseSec) inputPauseSec.value = savedConfig.pauseSec;
             if (savedConfig.voiceDelaySec !== undefined) inputVoiceDelaySec.value = savedConfig.voiceDelaySec;
-            if (savedConfig.letterGapMs !== undefined) inputLetterGapMs.value = savedConfig.letterGapMs;
             if (savedConfig.pitchHz) inputPitchHz.value = savedConfig.pitchHz;
             if (savedConfig.groupSize) inputGroupSize.value = savedConfig.groupSize;
             if (savedConfig.totalGroups) inputTotalGroups.value = savedConfig.totalGroups;
@@ -795,7 +789,7 @@
         chkProsigns.checked = PROSIGNS.every(c => checkboxes.find(cb => cb.value === c)?.checked);
     }
 
-    [inputCharWpm, inputEffWpm, inputStartDelaySec, inputPauseSec, inputVoiceDelaySec, inputLetterGapMs, inputPitchHz, inputGroupSize, inputTotalGroups, inputToneVol, chkAutoRead].forEach(el => {
+    [inputCharWpm, inputEffWpm, inputStartDelaySec, inputPauseSec, inputVoiceDelaySec, inputPitchHz, inputGroupSize, inputTotalGroups, inputToneVol, chkAutoRead].forEach(el => {
         el.addEventListener('change', saveSettings);
         el.addEventListener('keyup', saveSettings);
     });
@@ -815,7 +809,6 @@
         inputStartDelaySec.value = 2.0;
         inputPauseSec.value = 2.5;
         inputVoiceDelaySec.value = 0.7;
-        inputLetterGapMs.value = 100;
         inputPitchHz.value = 600;
         inputGroupSize.value = 5;
         inputTotalGroups.value = 10;
@@ -856,7 +849,7 @@
         };
     }
 
-    async function speakGroup(groupString, leadDelayMs = 700, letterGapMs = 100) {
+    async function speakGroup(groupString, leadDelayMs = 700) {
         if (stopRequested) return;
 
         if (leadDelayMs > 0) {
@@ -877,27 +870,8 @@
                 return;
             }
 
-            // High gap: join with punctuation pauses. Low gap: direct continuous character streaming.
-            let formattedText;
-            if (letterGapMs >= 250) {
-                formattedText = expandedTokens.join('. ');
-            } else if (letterGapMs >= 80) {
-                formattedText = expandedTokens.join(', ');
-            } else {
-                formattedText = expandedTokens.join(' ');
-            }
-
-            const utterance = new SpeechSynthesisUtterance(formattedText);
-            
-            // Dynamically scale speech rate based on requested gap (lower gap = faster delivery)
-            if (letterGapMs <= 50) {
-                utterance.rate = 1.3;
-            } else if (letterGapMs <= 150) {
-                utterance.rate = 1.1;
-            } else {
-                utterance.rate = 0.9;
-            }
-
+            const utterance = new SpeechSynthesisUtterance(expandedTokens.join(' '));
+            utterance.rate = 1.0;
             utterance.volume = 1.0;
             
             const bestVoice = getBestVoice();
@@ -924,7 +898,6 @@
         }
 
         const voiceDelayMs = parseFloat(inputVoiceDelaySec.value) * 1000;
-        const letterGapMs = parseInt(inputLetterGapMs.value, 10);
 
         stopRequested = false;
         purgeSpeechQueue();
@@ -934,7 +907,7 @@
         for (let g = 0; g < groups.length; g++) {
             if (stopRequested) break;
             
-            await speakGroup(groups[g], 200, letterGapMs);
+            await speakGroup(groups[g], 200);
 
             if (g < groups.length - 1 && !stopRequested) {
                 await cancellableSleep(400);
@@ -1086,7 +1059,6 @@
         const startDelaySec = parseFloat(inputStartDelaySec.value);
         const pauseSec = parseFloat(inputPauseSec.value);
         const voiceDelaySec = parseFloat(inputVoiceDelaySec.value);
-        const letterGapMs = parseInt(inputLetterGapMs.value, 10);
         const pitchHz = parseFloat(inputPitchHz.value);
         const groupSize = parseInt(inputGroupSize.value, 10);
         const totalGroups = parseInt(inputTotalGroups.value, 10);
@@ -1166,7 +1138,7 @@
                 txtOutput.scrollTop = txtOutput.scrollHeight;
                 
                 lblStatus.textContent = `Status: Reading Group ${g + 1}...`;
-                await speakGroup(groupStr, voiceDelaySec * 1000, letterGapMs);
+                await speakGroup(groupStr, voiceDelaySec * 1000);
             }
 
             if (g < fullGeneratedSession.length - 1 && !stopRequested) {
