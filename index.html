@@ -889,10 +889,7 @@
             if (stopRequested) break;
 
             await speakSingleToken(tokens[i]);
-
-            if (i < tokens.length - 1 && !stopRequested) {
-                await cancellableSleep(250); // 250ms gap between spoken letters
-            }
+            // Spoken back-to-back as individual utterances (natural browser gap only)
         }
     }
 
