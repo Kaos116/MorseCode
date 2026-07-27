@@ -502,7 +502,7 @@
             border-radius: 12px;
             padding: 24px;
             width: 90%;
-            max-width: 380px;
+            max-width: 400px;
             box-shadow: 0 12px 32px rgba(0,0,0,0.6);
             display: flex;
             flex-direction: column;
@@ -548,7 +548,7 @@
         .modal-body {
             display: flex;
             flex-direction: column;
-            gap: 14px;
+            gap: 12px;
         }
 
         .modal-row {
@@ -564,7 +564,7 @@
         }
 
         .modal-row input[type="number"] {
-            width: 85px;
+            width: 90px;
         }
 
         .modal-footer {
@@ -580,7 +580,7 @@
     <div class="card">
         <div class="card-header-flex">
             <div class="card-title">Practice Configuration</div>
-            <button id="btnOpenVoiceModal" class="btn-secondary">⚙️ Voice Settings</button>
+            <button id="btnOpenTimingModal" class="btn-secondary">⚙️ Timing & Volume Settings</button>
         </div>
         
         <div class="config-top-row">
@@ -591,7 +591,7 @@
                     <li><strong>Build Pool:</strong> Use category checkboxes or toggle individual characters in the selection grid below.</li>
                     <li><strong>Practice:</strong> Click <strong>Start Session</strong> and copy the code by ear.</li>
                     <li><strong>Read After Group:</strong> Enable <strong>Read After Each Group</strong> to reveal and hear voice confirmation after each group.</li>
-                    <li><strong>Voice Timing:</strong> Click <strong>⚙️ Voice Settings</strong> to adjust speech delays.</li>
+                    <li><strong>Advanced Timings:</strong> Click <strong>⚙️ Timing & Volume Settings</strong> to adjust speech delays, pauses, start delay, and CW volume.</li>
                     <li><strong>Auto-Save:</strong> Your settings save automatically so they are ready next time you open the app.</li>
                 </ul>
             </div>
@@ -603,12 +603,6 @@
                 <label for="effWpm">Effective Speed (WPM):</label>
                 <input type="number" id="effWpm" value="10" min="1" max="60">
 
-                <label for="startDelaySec">Start Delay (sec):</label>
-                <input type="number" id="startDelaySec" value="2.0" step="0.5" min="0">
-
-                <label for="pauseSec">Group Pause (sec):</label>
-                <input type="number" id="pauseSec" value="2.5" step="0.1" min="0">
-
                 <label for="pitchHz">Tone Pitch (Hz):</label>
                 <input type="number" id="pitchHz" value="600" step="10" min="200" max="1500">
 
@@ -617,9 +611,6 @@
 
                 <label for="totalGroups">Total Groups:</label>
                 <input type="number" id="totalGroups" value="10" min="1" max="100">
-
-                <label for="toneVol">CW Volume (%):</label>
-                <input type="number" id="toneVol" value="35" min="5" max="100" step="5">
             </div>
         </div>
 
@@ -661,7 +652,6 @@
                 <label class="auto-read-label">
                     <input type="checkbox" id="chkAutoRead"> Read After Each Group
                 </label>
-                <button id="btnOpenVoiceModal2" class="btn-secondary">⚙️ Voice Delay</button>
                 <button id="btnSpeak" class="btn-secondary">🔊 Read All Sent Text</button>
             </div>
         </div>
@@ -669,24 +659,36 @@
     </div>
 </div>
 
-<!-- Voice Settings Modal -->
-<div id="voiceModal" class="modal-overlay">
+<!-- Timing & Volume Settings Modal -->
+<div id="timingModal" class="modal-overlay">
     <div class="modal-card">
         <div class="modal-header">
-            <div class="modal-title">Voice Timing Settings</div>
-            <button id="btnCloseVoiceModal" class="modal-close">&times;</button>
+            <div class="modal-title">Timing & Volume Settings</div>
+            <button id="btnCloseTimingModal" class="modal-close">&times;</button>
         </div>
         <div class="modal-body">
+            <div class="modal-row">
+                <label for="startDelaySec">Start Delay (sec):</label>
+                <input type="number" id="startDelaySec" value="2.0" step="0.5" min="0">
+            </div>
+            <div class="modal-row">
+                <label for="pauseSec">Group Pause (sec):</label>
+                <input type="number" id="pauseSec" value="2.5" step="0.1" min="0">
+            </div>
             <div class="modal-row">
                 <label for="voiceDelaySec">Voice Lead Delay (sec):</label>
                 <input type="number" id="voiceDelaySec" value="0.7" step="0.1" min="0" max="5">
             </div>
-            <p style="font-size: 0.78em; color: var(--text-muted); line-height: 1.4;">
-                Sets the buffer delay between the end of CW group tones and the start of spoken character confirmation.
+            <div class="modal-row">
+                <label for="toneVol">CW Volume (%):</label>
+                <input type="number" id="toneVol" value="35" min="5" max="100" step="5">
+            </div>
+            <p style="font-size: 0.78em; color: var(--text-muted); line-height: 1.4; margin-top: 4px;">
+                Configure session start delays, inter-group pauses, spoken confirmation lead times, and audio tone volume.
             </p>
         </div>
         <div class="modal-footer">
-            <button id="btnSaveVoiceModal" class="btn-secondary">Close</button>
+            <button id="btnSaveTimingModal" class="btn-secondary">Close</button>
         </div>
     </div>
 </div>
@@ -771,27 +773,25 @@
     const inputToneVol = document.getElementById('toneVol');
 
     // Modal controls
-    const voiceModal = document.getElementById('voiceModal');
-    const btnOpenVoiceModal = document.getElementById('btnOpenVoiceModal');
-    const btnOpenVoiceModal2 = document.getElementById('btnOpenVoiceModal2');
-    const btnCloseVoiceModal = document.getElementById('btnCloseVoiceModal');
-    const btnSaveVoiceModal = document.getElementById('btnSaveVoiceModal');
+    const timingModal = document.getElementById('timingModal');
+    const btnOpenTimingModal = document.getElementById('btnOpenTimingModal');
+    const btnCloseTimingModal = document.getElementById('btnCloseTimingModal');
+    const btnSaveTimingModal = document.getElementById('btnSaveTimingModal');
 
     function openModal() {
-        voiceModal.classList.add('active');
+        timingModal.classList.add('active');
     }
 
     function closeModal() {
-        voiceModal.classList.remove('active');
+        timingModal.classList.remove('active');
         saveSettings();
     }
 
-    btnOpenVoiceModal.addEventListener('click', openModal);
-    btnOpenVoiceModal2.addEventListener('click', openModal);
-    btnCloseVoiceModal.addEventListener('click', closeModal);
-    btnSaveVoiceModal.addEventListener('click', closeModal);
-    voiceModal.addEventListener('click', (e) => {
-        if (e.target === voiceModal) closeModal();
+    btnOpenTimingModal.addEventListener('click', openModal);
+    btnCloseTimingModal.addEventListener('click', closeModal);
+    btnSaveTimingModal.addEventListener('click', closeModal);
+    timingModal.addEventListener('click', (e) => {
+        if (e.target === timingModal) closeModal();
     });
 
     async function requestWakeLock() {
