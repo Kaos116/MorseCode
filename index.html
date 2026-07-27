@@ -171,6 +171,19 @@
             }
         }
 
+        .grid-btn-row {
+            grid-column: 1 / -1;
+            margin-top: 4px;
+            padding-top: 8px;
+            border-top: 1px dashed var(--border-color);
+            display: flex;
+            justify-content: center;
+        }
+
+        .grid-btn-row button {
+            width: 100%;
+        }
+
         label {
             font-size: 0.9em;
             color: var(--text-main);
@@ -578,10 +591,7 @@
 
 <div class="container">
     <div class="card">
-        <div class="card-header-flex">
-            <div class="card-title">Practice Configuration</div>
-            <button id="btnOpenTimingModal" class="btn-secondary">⚙️ Timing & Volume Settings</button>
-        </div>
+        <div class="card-title">Practice Configuration</div>
         
         <div class="config-top-row">
             <div class="instructions-box">
@@ -591,7 +601,7 @@
                     <li><strong>Build Pool:</strong> Use category checkboxes or toggle individual characters in the selection grid below.</li>
                     <li><strong>Practice:</strong> Click <strong>Start Session</strong> and copy the code by ear.</li>
                     <li><strong>Read After Group:</strong> Enable <strong>Read After Each Group</strong> to reveal and hear voice confirmation after each group.</li>
-                    <li><strong>Advanced Timings:</strong> Click <strong>⚙️ Timing & Volume Settings</strong> to adjust speech delays, pauses, start delay, and CW volume.</li>
+                    <li><strong>Advanced Timings:</strong> Click <strong>⚙️ Timing & Volume Settings</strong> inside the settings box to adjust speech delays, pauses, start delay, and CW volume.</li>
                     <li><strong>Auto-Save:</strong> Your settings save automatically so they are ready next time you open the app.</li>
                 </ul>
             </div>
@@ -611,6 +621,10 @@
 
                 <label for="totalGroups">Total Groups:</label>
                 <input type="number" id="totalGroups" value="10" min="1" max="100">
+
+                <div class="grid-btn-row">
+                    <button id="btnOpenTimingModal" class="btn-secondary">⚙️ Timing & Volume Settings</button>
+                </div>
             </div>
         </div>
 
