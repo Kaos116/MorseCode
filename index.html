@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -102,7 +103,8 @@
         .output-controls {
             display: flex;
             align-items: center;
-            gap: 14px;
+            gap: 10px;
+            flex-wrap: wrap;
         }
 
         .auto-read-label {
@@ -471,13 +473,116 @@
             height: 15px;
             cursor: pointer;
         }
+
+        /* Modal / Pop-up Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(4, 8, 16, 0.75);
+            backdrop-filter: blur(6px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            width: 90%;
+            max-width: 380px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            transform: translateY(-10px);
+            transition: transform 0.25s ease;
+        }
+
+        .modal-overlay.active .modal-card {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .modal-title {
+            font-size: 0.9em;
+            font-weight: 700;
+            color: var(--accent-blue);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.2em;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0 4px;
+        }
+
+        .modal-close:hover {
+            color: #ff416c;
+        }
+
+        .modal-body {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .modal-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .modal-row label {
+            font-size: 0.88em;
+            color: var(--text-main);
+        }
+
+        .modal-row input[type="number"] {
+            width: 85px;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 6px;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="card">
-        <div class="card-title">Practice Configuration</div>
+        <div class="card-header-flex">
+            <div class="card-title">Practice Configuration</div>
+            <button id="btnOpenVoiceModal" class="btn-secondary">⚙️ Voice Settings</button>
+        </div>
         
         <div class="config-top-row">
             <div class="instructions-box">
@@ -487,7 +592,7 @@
                     <li><strong>Build Pool:</strong> Use category checkboxes or toggle individual characters in the selection grid below.</li>
                     <li><strong>Practice:</strong> Click <strong>Start Session</strong> and copy the code by ear.</li>
                     <li><strong>Read After Group:</strong> Enable <strong>Read After Each Group</strong> to reveal and hear voice confirmation after each group.</li>
-                    <li><strong>Voice Timing:</strong> Adjust <strong>Voice Delay</strong> to set the pause between the CW tones and spoken confirmation.</li>
+                    <li><strong>Voice Timing:</strong> Click <strong>⚙️ Voice Settings</strong> to adjust speech delays.</li>
                     <li><strong>Auto-Save:</strong> Your settings save automatically so they are ready next time you open the app.</li>
                 </ul>
             </div>
@@ -504,9 +609,6 @@
 
                 <label for="pauseSec">Group Pause (sec):</label>
                 <input type="number" id="pauseSec" value="2.5" step="0.1" min="0">
-
-                <label for="voiceDelaySec">Voice Delay (sec):</label>
-                <input type="number" id="voiceDelaySec" value="0.7" step="0.1" min="0" max="5">
 
                 <label for="pitchHz">Tone Pitch (Hz):</label>
                 <input type="number" id="pitchHz" value="600" step="10" min="200" max="1500">
@@ -560,10 +662,33 @@
                 <label class="auto-read-label">
                     <input type="checkbox" id="chkAutoRead"> Read After Each Group
                 </label>
+                <button id="btnOpenVoiceModal2" class="btn-secondary">⚙️ Voice Delay</button>
                 <button id="btnSpeak" class="btn-secondary">🔊 Read All Sent Text</button>
             </div>
         </div>
         <textarea id="txtOutput" class="output-textarea" readonly></textarea>
+    </div>
+</div>
+
+<!-- Voice Settings Modal -->
+<div id="voiceModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div class="modal-title">Voice Timing Settings</div>
+            <button id="btnCloseVoiceModal" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-row">
+                <label for="voiceDelaySec">Voice Lead Delay (sec):</label>
+                <input type="number" id="voiceDelaySec" value="0.7" step="0.1" min="0" max="5">
+            </div>
+            <p style="font-size: 0.78em; color: var(--text-muted); line-height: 1.4;">
+                Sets the buffer delay between the end of CW group tones and the start of spoken character confirmation.
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button id="btnSaveVoiceModal" class="btn-secondary">Close</button>
+        </div>
     </div>
 </div>
 
@@ -645,6 +770,30 @@
     const inputGroupSize = document.getElementById('groupSize');
     const inputTotalGroups = document.getElementById('totalGroups');
     const inputToneVol = document.getElementById('toneVol');
+
+    // Modal controls
+    const voiceModal = document.getElementById('voiceModal');
+    const btnOpenVoiceModal = document.getElementById('btnOpenVoiceModal');
+    const btnOpenVoiceModal2 = document.getElementById('btnOpenVoiceModal2');
+    const btnCloseVoiceModal = document.getElementById('btnCloseVoiceModal');
+    const btnSaveVoiceModal = document.getElementById('btnSaveVoiceModal');
+
+    function openModal() {
+        voiceModal.classList.add('active');
+    }
+
+    function closeModal() {
+        voiceModal.classList.remove('active');
+        saveSettings();
+    }
+
+    btnOpenVoiceModal.addEventListener('click', openModal);
+    btnOpenVoiceModal2.addEventListener('click', openModal);
+    btnCloseVoiceModal.addEventListener('click', closeModal);
+    btnSaveVoiceModal.addEventListener('click', closeModal);
+    voiceModal.addEventListener('click', (e) => {
+        if (e.target === voiceModal) closeModal();
+    });
 
     async function requestWakeLock() {
         try {
@@ -889,7 +1038,6 @@
             if (stopRequested) break;
 
             await speakSingleToken(tokens[i]);
-            // Spoken back-to-back as individual utterances (natural browser gap only)
         }
     }
 
