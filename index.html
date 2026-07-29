@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230b0e14'/><circle cx='25' cy='50' r='10' fill='%2350fa7b'/><rect x='50' y='43' width='35' height='15' rx='5' fill='%2350fa7b'/></svg>">
+    <title>Farnsworth Morse Trainer</title>
+    <style>
+        :root {
+            --bg-color: #0b0e14;
+            --card-bg: #161b22;
+            --border-color: #30363d;
+            --border-hover: #4facfe;
+            --accent-gradient: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+            --accent-blue: #00f2fe;
+            --text-main: #f0f6fc;
+            --text-muted: #8b949e;
+            --danger-gradient: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+            --chip-bg: #21262d;
+            --chip-checked: linear-gradient(135deg, #1f4068 0%, #162447 100%);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            padding: 15px 10px;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 760px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Card Styling */
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px 22px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            backdrop-filter: blur(10px);
+            transition: border-color 0.2s ease;
+        }
+
+        @media (max-width: 480px) {
+            .card {
+                padding: 15px;
+            }
+        }
+
+        .card:hover {
+            border-color: #212836;
+        }
+
+        .card-title, .sub-label {
+            font-size: 0.85em;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 12px;
+            background: var(--accent-gradient);
+            border-radius: 2px;
+        }
+
+        .card-header-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .card-header-flex .card-title {
+            margin-bottom: 0;
+        }
+
+        .output-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .auto-read-label {
+            font-size: 0.8em;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .instructions-list {
+            font-size: 0.88em;
+            color: var(--text-muted);
+            line-height: 1.6;
+            padding-left: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .instructions-list strong {
+            color: var(--text-main);
+        }
+
+        /* Input Grid */
+        .grid-layout {
+            display: grid;
+            grid-template-columns: auto 90px;
+            justify-content: start;
+            row-gap: 12px;
+            column-gap: 16px;
+            align-items: center;
+            background-color: #0d1117;
+            padding: 14px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            width: fit-content;
+        }
+
+        @media (max-width: 480px) {
+            .grid-layout {
+                grid-template-columns: 1fr 80px;
+                width: 100%;
+            }
+        }
+
+        .grid-btn-row {
+            grid-column: 1 / -1;
+            margin-top: 4px;
+            padding-top: 8px;
+            border-top: 1px dashed var(--border-color);
+            display: flex;
+            justify-content: center;
+        }
+
+        .grid-btn-row button {
+            width: 100%;
+        }
+
+        label {
+            font-size: 0.9em;
+            color: var(--text-main);
+            white-space: nowrap;
+        }
+
+        input[type="number"], select {
+            background-color: #161b22;
+            color: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: 0.9em;
+            width: 100%;
+            outline: none;
+            transition: all 0.2s ease;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        input[type="number"]:focus, select:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(0, 242, 254, 0.15);
+        }
+
+        /* Category Toggles */
+        .category-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px 18px;
+            margin-top: 18px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .category-group label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85em;
+            color: var(--text-muted);
+            transition: color 0.2s ease;
+        }
+
+        .category-group label:hover {
+            color: var(--accent-blue);
+        }
+
+        /* Character Selection Grid */
+        .char-grid-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 16px;
+            width: 100%;
+        }
+
+        .char-grid-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .char-grid-title {
+            font-size: 0.8em;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .btn-reset-link {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.75em;
+            text-decoration: underline;
+            cursor: pointer;
+            padding: 0;
+            box-shadow: none;
+            text-transform: none;
+            letter-spacing: normal;
+        }
+
+        .btn-reset-link:hover {
+            color: #ff416c;
+        }
+
+        .char-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+            gap: 5px;
+            padding: 10px;
+            background-color: #0d1117;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            width: 100%;
+            overflow: visible;
+        }
+
+        .char-tile {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--chip-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 7px;
+            height: 36px;
+            font-family: 'Consolas', monospace;
+            font-weight: bold;
+            font-size: 1.0em;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.15s ease;
+            color: var(--text-muted);
+        }
+
+        .char-tile input[type="checkbox"] {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+            height: 100%;
+            width: 100%;
+            top: 0;
+            left: 0;
+            margin: 0;
+            z-index: 2;
+        }
+
+        .char-tile span {
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .char-tile:hover {
+            border-color: var(--border-hover);
+            color: #fff;
+        }
+
+        .char-tile.checked {
+            background: var(--chip-checked);
+            border-color: var(--accent-blue);
+            color: #fff;
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.25);
+        }
+
+        textarea {
+            width: 100%;
+            background-color: #0d1117;
+            color: var(--accent-blue);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.95em;
+            letter-spacing: 1px;
+            resize: vertical;
+            outline: none;
+            word-break: break-all;
+            white-space: pre-wrap;
+        }
+
+        .output-textarea {
+            height: 100px;
+            min-height: 65px;
+            color: #50fa7b;
+            font-weight: 600;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+        }
+
+        button:not(.btn-reset-link):not(.btn-secondary) {
+            flex: 1;
+            padding: 14px;
+            font-size: 1em;
+            font-weight: 700;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .btn-primary {
+            background: var(--accent-gradient);
+            color: #040d1a;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 242, 254, 0.4);
+        }
+
+        .btn-danger {
+            background: var(--danger-gradient);
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 65, 108, 0.4);
+        }
+
+        .btn-secondary {
+            background: #21262d;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+        }
+
+        button:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .status-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: 4px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--text-muted);
+            transition: background-color 0.3s ease;
+        }
+
+        .status-dot.active {
+            background-color: #50fa7b;
+            box-shadow: 0 0 8px #50fa7b;
+        }
+
+        .status {
+            font-size: 0.9em;
+            color: var(--text-muted);
+        }
+
+        input[type="checkbox"]:not(.char-tile input) {
+            accent-color: var(--accent-blue);
+            width: 15px;
+            height: 15px;
+            cursor: pointer;
+        }
+
+        /* Modal / Pop-up Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(4, 8, 16, 0.75);
+            backdrop-filter: blur(6px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            width: 90%;
+            max-width: 440px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            transform: translateY(-10px);
+            transition: transform 0.25s ease;
+        }
+
+        .modal-overlay.active .modal-card {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .modal-title {
+            font-size: 0.9em;
+            font-weight: 700;
+            color: var(--accent-blue);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.2em;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0 4px;
+        }
+
+        .modal-close:hover {
+            color: #ff416c;
+        }
+
+        .modal-body {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .modal-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .modal-row label {
+            font-size: 0.88em;
+            color: var(--text-main);
+        }
+
+        .modal-row input[type="number"] {
+            width: 90px;
+        }
+
+        .modal-row select {
+            width: 200px;
+            text-overflow: ellipsis;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 6px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <div class="card-header-flex">
+            <div class="card-title">Practice Configuration</div>
+            <button id="btnOpenInstructionsModal" class="btn-secondary">ℹ️ Instructions</button>
+        </div>
+        
+        <div class="grid-layout">
+            <label for="charWpm">Character Speed (WPM):</label>
+            <input type="number" id="charWpm" value="18" min="1" max="60">
+
+            <label for="effWpm">Effective Speed (WPM):</label>
+            <input type="number" id="effWpm" value="10" min="1" max="60">
+
+            <label for="pitchHz">Tone Pitch (Hz):</label>
+            <input type="number" id="pitchHz" value="600" step="10" min="200" max="1500">
+
+            <label for="groupSize">Group Size:</label>
+            <input type="number" id="groupSize" value="5" min="1" max="20">
+
+            <label for="totalGroups">Total Groups:</label>
+            <input type="number" id="totalGroups" value="10" min="1" max="100">
+
+            <div class="grid-btn-row">
+                <button id="btnOpenTimingModal" class="btn-secondary">⚙️ Timing & Volume Settings</button>
+            </div>
+        </div>
+
+        <div class="category-group">
+            <label><input type="checkbox" id="chkLetters"> All Letters</label>
+            <label><input type="checkbox" id="chkNumbers"> All Numbers</label>
+            <label><input type="checkbox" id="chkPunctuation"> Punctuation</label>
+            <label><input type="checkbox" id="chkProsigns"> Prosigns</label>
+        </div>
+
+        <div class="char-grid-container">
+            <div class="char-grid-header">
+                <div class="char-grid-title">Toggle Individual Characters</div>
+                <button id="btnResetDefaults" class="btn-reset-link">Reset Defaults</button>
+            </div>
+            <div id="charGrid" class="char-grid"></div>
+        </div>
+    </div>
+
+    <div class="btn-group">
+        <button id="btnStart" class="btn-primary">Start Session</button>
+        <button id="btnStop" class="btn-danger" disabled>Stop</button>
+    </div>
+
+    <div class="status-container">
+        <div id="statusDot" class="status-dot"></div>
+        <div id="lblStatus" class="status">Status: Ready</div>
+    </div>
+
+    <div class="card">
+        <div class="card-header-flex">
+            <div class="card-title">Sent Morse Output</div>
+            <div class="output-controls">
+                <label class="auto-read-label">
+                    <input type="checkbox" id="chkAutoRead"> Read After Each Group
+                </label>
+                <button id="btnSpeak" class="btn-secondary">🔊 Read All Sent Text</button>
+            </div>
+        </div>
+        <textarea id="txtOutput" class="output-textarea" readonly></textarea>
+    </div>
+</div>
+
+<!-- Instructions Modal -->
+<div id="instructionsModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div class="modal-title">Quick Instructions</div>
+            <button id="btnCloseInstructionsModal" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <ul class="instructions-list">
+                <li><strong>Set Speeds:</strong> Keep <em>Character WPM</em> higher than <em>Effective WPM</em> for Farnsworth spacing.</li>
+                <li><strong>Build Pool:</strong> Use category checkboxes or toggle individual characters in the selection grid.</li>
+                <li><strong>Practice:</strong> Click <strong>Start Session</strong> and copy the code by ear.</li>
+                <li><strong>Read After Group:</strong> Enable <strong>Read After Each Group</strong> to reveal and hear voice confirmation after each group.</li>
+                <li><strong>Advanced Timings:</strong> Click <strong>⚙️ Timing & Volume Settings</strong> to adjust voice, phonetic speech, delays, pauses, and CW volume.</li>
+                <li><strong>Auto-Save:</strong> Your settings save automatically so they are ready next time you open the app.</li>
+            </ul>
+        </div>
+        <div class="modal-footer">
+            <button id="btnDoneInstructionsModal" class="btn-secondary">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Timing & Volume Settings Modal -->
+<div id="timingModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div class="modal-title">Timing & Volume Settings</div>
+            <button id="btnCloseTimingModal" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-row">
+                <label for="voiceSelect">Speech Voice:</label>
+                <select id="voiceSelect"><option value="">Default Voice</option></select>
+            </div>
+            <div class="modal-row">
+                <label for="chkUsePhonetics">Use NATO Phonetics:</label>
+                <input type="checkbox" id="chkUsePhonetics">
+            </div>
+            <div class="modal-row">
+                <label for="startDelaySec">Start Delay (sec):</label>
+                <input type="number" id="startDelaySec" value="2.0" step="0.5" min="0">
+            </div>
+            <div class="modal-row">
+                <label for="pauseSec">Group Pause (sec):</label>
+                <input type="number" id="pauseSec" value="2.5" step="0.1" min="0">
+            </div>
+            <div class="modal-row">
+                <label for="voiceDelaySec">Voice Lead Delay (sec):</label>
+                <input type="number" id="voiceDelaySec" value="0.7" step="0.1" min="0" max="5">
+            </div>
+            <div class="modal-row">
+                <label for="toneVol">CW Volume (%):</label>
+                <input type="number" id="toneVol" value="35" min="5" max="100" step="5">
+            </div>
+            <p style="font-size: 0.78em; color: var(--text-muted); line-height: 1.4; margin-top: 4px;">
+                Configure speech voice, phonetic readout options, session start delays, inter-group pauses, spoken confirmation lead times, and audio tone volume.
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button id="btnSaveTimingModal" class="btn-secondary">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: 'Farnsworth Morse Trainer',
+            artist: 'Morse Practice',
+            album: 'Audio Session'
+        });
+
+        navigator.mediaSession.setActionHandler('play', () => { startPractice(); });
+        navigator.mediaSession.setActionHandler('pause', () => { stopPractice(); });
+    }
+
+    const MORSE_CODE = {
+        'A': '.-',    'B': '-...',  'C': '-.-.',  'D': '-..',   'E': '.',
+        'F': '..-.',  'G': '--.',   'H': '....',  'I': '..',    'J': '.---',
+        'K': '-.-',   'L': '.-..',  'M': '--',    'N': '-.',    'O': '---',
+        'P': '.--.',  'Q': '--.-',  'R': '.-.',   'S': '...',   'T': '-',
+        'U': '..-',   'V': '...-',  'W': '.--',   'X': '-..-',  'Y': '-.--',
+        'Z': '--..',  '1': '.----', '2': '..---', '3': '...--', '4': '....-',
+        '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.',
+        '0': '-----', '/': '-..-.', '?': '..--..', '=': '-...-', '.': '.-.-.-',
+        ',': '--..--', "'": '.----.', '-': '-....-',
+        '<AR>': '.-.-.', '<SK>': '...-.-', '<BT>': '-...-', '<KN>': '.-.--.', '<AS>': '.-...'
+    };
+
+    const SPEECH_PRONUNCIATION = {
+        '/': 'slash',
+        '?': 'question mark',
+        '=': 'equals',
+        '.': 'period',
+        ',': 'comma',
+        "'": 'apostrophe',
+        '-': 'hyphen',
+        '<AR>': 'A R',
+        '<SK>': 'S K',
+        '<BT>': 'break',
+        '<KN>': 'K N',
+        '<AS>': 'wait'
+    };
+
+    const NATO_PHONETICS = {
+        'A': 'Alfa',     'B': 'Bravo',    'C': 'Charlie',  'D': 'Delta',
+        'E': 'Echo',     'F': 'Foxtrot',  'G': 'Golf',     'H': 'Hotel',
+        'I': 'India',    'J': 'Juliett',  'K': 'Kilo',     'L': 'Lima',
+        'M': 'Mike',     'N': 'November', 'O': 'Oscar',    'P': 'Papa',
+        'Q': 'Quebec',   'R': 'Romeo',    'S': 'Sierra',   'T': 'Tango',
+        'U': 'Uniform',  'V': 'Victor',   'W': 'Whiskey',  'X': 'X-ray',
+        'Y': 'Yankee',   'Z': 'Zulu',
+        '0': 'Zero',     '1': 'One',      '2': 'Two',      '3': 'Three',
+        '4': 'Four',     '5': 'Five',     '6': 'Six',      '7': 'Seven',
+        '8': 'Eight',    '9': 'Nine'
+    };
+
+    const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
+    const NUMBERS = "1234567890".split('');
+    const PUNCTUATION = ["/", "?", "=", ".", ",", "'", "-"];
+    const PROSIGNS = ["<AR>", "<SK>", "<BT>", "<KN>", "<AS>"];
+
+    const DEFAULT_CUSTOM = ["K", "M", "R", "S", "U", "A", "P", "T", "L", "O"];
+    const STORAGE_KEY = "farnsworth_morse_config_v1";
+
+    let isRunning = false;
+    let isReadingAll = false;
+    let stopRequested = false;
+    let audioCtx = null;
+    let currentSourceNode = null;
+    let wakeLock = null;
+    let availableVoices = [];
+
+    const chkLetters = document.getElementById('chkLetters');
+    const chkNumbers = document.getElementById('chkNumbers');
+    const chkPunctuation = document.getElementById('chkPunctuation');
+    const chkProsigns = document.getElementById('chkProsigns');
+    const chkAutoRead = document.getElementById('chkAutoRead');
+    const chkUsePhonetics = document.getElementById('chkUsePhonetics');
+    const charGrid = document.getElementById('charGrid');
+    const txtOutput = document.getElementById('txtOutput');
+    const btnStart = document.getElementById('btnStart');
+    const btnStop = document.getElementById('btnStop');
+    const btnSpeak = document.getElementById('btnSpeak');
+    const btnResetDefaults = document.getElementById('btnResetDefaults');
+    const lblStatus = document.getElementById('lblStatus');
+    const statusDot = document.getElementById('statusDot');
+
+    const inputCharWpm = document.getElementById('charWpm');
+    const inputEffWpm = document.getElementById('effWpm');
+    const inputStartDelaySec = document.getElementById('startDelaySec');
+    const inputPauseSec = document.getElementById('pauseSec');
+    const inputVoiceDelaySec = document.getElementById('voiceDelaySec');
+    const inputPitchHz = document.getElementById('pitchHz');
+    const inputGroupSize = document.getElementById('groupSize');
+    const inputTotalGroups = document.getElementById('totalGroups');
+    const inputToneVol = document.getElementById('toneVol');
+    const voiceSelect = document.getElementById('voiceSelect');
+
+    // Timing Modal Controls
+    const timingModal = document.getElementById('timingModal');
+    const btnOpenTimingModal = document.getElementById('btnOpenTimingModal');
+    const btnCloseTimingModal = document.getElementById('btnCloseTimingModal');
+    const btnSaveTimingModal = document.getElementById('btnSaveTimingModal');
+
+    function openTimingModal() { timingModal.classList.add('active'); }
+    function closeTimingModal() { timingModal.classList.remove('active'); saveSettings(); }
+
+    btnOpenTimingModal.addEventListener('click', openTimingModal);
+    btnCloseTimingModal.addEventListener('click', closeTimingModal);
+    btnSaveTimingModal.addEventListener('click', closeTimingModal);
+    timingModal.addEventListener('click', (e) => {
+        if (e.target === timingModal) closeTimingModal();
+    });
+
+    // Instructions Modal Controls
+    const instructionsModal = document.getElementById('instructionsModal');
+    const btnOpenInstructionsModal = document.getElementById('btnOpenInstructionsModal');
+    const btnCloseInstructionsModal = document.getElementById('btnCloseInstructionsModal');
+    const btnDoneInstructionsModal = document.getElementById('btnDoneInstructionsModal');
+
+    function openInstructionsModal() { instructionsModal.classList.add('active'); }
+    function closeInstructionsModal() { instructionsModal.classList.remove('active'); }
+
+    btnOpenInstructionsModal.addEventListener('click', openInstructionsModal);
+    btnCloseInstructionsModal.addEventListener('click', closeInstructionsModal);
+    btnDoneInstructionsModal.addEventListener('click', closeInstructionsModal);
+    instructionsModal.addEventListener('click', (e) => {
+        if (e.target === instructionsModal) closeInstructionsModal();
+    });
+
+    async function requestWakeLock() {
+        try {
+            if ('wakeLock' in navigator) {
+                wakeLock = await navigator.wakeLock.request('screen');
+            }
+        } catch (err) {
+            console.log(`Wake Lock Error: ${err.name}, ${err.message}`);
+        }
+    }
+
+    function releaseWakeLock() {
+        if (wakeLock !== null) {
+            wakeLock.release().then(() => {
+                wakeLock = null;
+            });
+        }
+    }
+
+    document.addEventListener('visibilitychange', async () => {
+        if (wakeLock !== null && document.visibilityState === 'visible' && isRunning) {
+            await requestWakeLock();
+        }
+    });
+
+    function populateVoiceList() {
+        if (!('speechSynthesis' in window)) return;
+
+        availableVoices = window.speechSynthesis.getVoices().filter(v => v.lang.startsWith('en'));
+        voiceSelect.innerHTML = '';
+
+        if (availableVoices.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = "";
+            opt.textContent = "Default Voice";
+            voiceSelect.appendChild(opt);
+            return;
+        }
+
+        availableVoices.forEach((voice) => {
+            const opt = document.createElement('option');
+            opt.value = voice.name;
+            opt.textContent = `${voice.name} (${voice.lang})`;
+            voiceSelect.appendChild(opt);
+        });
+
+        const savedConfig = loadSavedSettings();
+        if (savedConfig?.selectedVoiceName) {
+            voiceSelect.value = savedConfig.selectedVoiceName;
+        }
+    }
+
+    if ('speechSynthesis' in window) {
+        populateVoiceList();
+        window.speechSynthesis.onvoiceschanged = populateVoiceList;
+    }
+
+    function getSelectedCharacters() {
+        const selected = [];
+        const checkboxes = charGrid.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+            if (cb.checked) selected.push(cb.value);
+        });
+        return selected;
+    }
+
+    function saveSettings() {
+        const config = {
+            charWpm: inputCharWpm.value,
+            effWpm: inputEffWpm.value,
+            startDelaySec: inputStartDelaySec.value,
+            pauseSec: inputPauseSec.value,
+            voiceDelaySec: inputVoiceDelaySec.value,
+            pitchHz: inputPitchHz.value,
+            groupSize: inputGroupSize.value,
+            totalGroups: inputTotalGroups.value,
+            toneVol: inputToneVol.value,
+            autoRead: chkAutoRead.checked,
+            usePhonetics: chkUsePhonetics.checked,
+            selectedVoiceName: voiceSelect.value,
+            selectedChars: getSelectedCharacters()
+        };
+
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+        } catch (e) {}
+    }
+
+    function loadSavedSettings() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return null;
+            return JSON.parse(raw);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function buildCharGrid() {
+        charGrid.innerHTML = '';
+        const allChars = [...LETTERS, ...NUMBERS, ...PUNCTUATION, ...PROSIGNS];
+        const savedConfig = loadSavedSettings();
+        const activePool = savedConfig?.selectedChars ? savedConfig.selectedChars : DEFAULT_CUSTOM;
+
+        if (savedConfig) {
+            if (savedConfig.charWpm) inputCharWpm.value = savedConfig.charWpm;
+            if (savedConfig.effWpm) inputEffWpm.value = savedConfig.effWpm;
+            if (savedConfig.startDelaySec) inputStartDelaySec.value = savedConfig.startDelaySec;
+            if (savedConfig.pauseSec) inputPauseSec.value = savedConfig.pauseSec;
+            if (savedConfig.voiceDelaySec !== undefined) inputVoiceDelaySec.value = savedConfig.voiceDelaySec;
+            if (savedConfig.pitchHz) inputPitchHz.value = savedConfig.pitchHz;
+            if (savedConfig.groupSize) inputGroupSize.value = savedConfig.groupSize;
+            if (savedConfig.totalGroups) inputTotalGroups.value = savedConfig.totalGroups;
+            if (savedConfig.toneVol) inputToneVol.value = savedConfig.toneVol;
+            if (savedConfig.autoRead !== undefined) chkAutoRead.checked = savedConfig.autoRead;
+            if (savedConfig.usePhonetics !== undefined) chkUsePhonetics.checked = savedConfig.usePhonetics;
+            if (savedConfig.selectedVoiceName && voiceSelect) voiceSelect.value = savedConfig.selectedVoiceName;
+        }
+
+        allChars.forEach(char => {
+            const tile = document.createElement('div');
+            tile.className = 'char-tile';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = char;
+            checkbox.id = `char-cb-${char}`;
+
+            if (activePool.includes(char)) {
+                checkbox.checked = true;
+                tile.classList.add('checked');
+            }
+
+            checkbox.addEventListener('change', (e) => {
+                tile.classList.toggle('checked', e.target.checked);
+                updateCategoryCheckboxes();
+                saveSettings();
+            });
+
+            const span = document.createElement('span');
+            span.textContent = char;
+
+            tile.appendChild(checkbox);
+            tile.appendChild(span);
+            charGrid.appendChild(tile);
+        });
+
+        updateCategoryCheckboxes();
+    }
+
+    function setCategoryState(categoryArray, isChecked) {
+        const checkboxes = charGrid.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+            if (categoryArray.includes(cb.value)) {
+                cb.checked = isChecked;
+                cb.parentElement.classList.toggle('checked', isChecked);
+            }
+        });
+        saveSettings();
+    }
+
+    function updateCategoryCheckboxes() {
+        const checkboxes = Array.from(charGrid.querySelectorAll('input[type="checkbox"]'));
+        
+        chkLetters.checked = LETTERS.every(c => checkboxes.find(cb => cb.value === c)?.checked);
+        chkNumbers.checked = NUMBERS.every(c => checkboxes.find(cb => cb.value === c)?.checked);
+        chkPunctuation.checked = PUNCTUATION.every(c => checkboxes.find(cb => cb.value === c)?.checked);
+        chkProsigns.checked = PROSIGNS.every(c => checkboxes.find(cb => cb.value === c)?.checked);
+    }
+
+    [inputCharWpm, inputEffWpm, inputStartDelaySec, inputPauseSec, inputVoiceDelaySec, inputPitchHz, inputGroupSize, inputTotalGroups, inputToneVol, chkAutoRead, chkUsePhonetics, voiceSelect].forEach(el => {
+        el.addEventListener('change', saveSettings);
+        el.addEventListener('keyup', saveSettings);
+    });
+
+    chkLetters.addEventListener('change', (e) => setCategoryState(LETTERS, e.target.checked));
+    chkNumbers.addEventListener('change', (e) => setCategoryState(NUMBERS, e.target.checked));
+    chkPunctuation.addEventListener('change', (e) => setCategoryState(PUNCTUATION, e.target.checked));
+    chkProsigns.addEventListener('change', (e) => setCategoryState(PROSIGNS, e.target.checked));
+
+    btnResetDefaults.addEventListener('click', () => {
+        try {
+            localStorage.removeItem(STORAGE_KEY);
+        } catch(e) {}
+        
+        inputCharWpm.value = 18;
+        inputEffWpm.value = 10;
+        inputStartDelaySec.value = 2.0;
+        inputPauseSec.value = 2.5;
+        inputVoiceDelaySec.value = 0.7;
+        inputPitchHz.value = 600;
+        inputGroupSize.value = 5;
+        inputTotalGroups.value = 10;
+        inputToneVol.value = 35;
+        chkAutoRead.checked = false;
+        chkUsePhonetics.checked = false;
+
+        if (voiceSelect.options.length > 0) {
+            voiceSelect.selectedIndex = 0;
+        }
+
+        const checkboxes = charGrid.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+            const isDefault = DEFAULT_CUSTOM.includes(cb.value);
+            cb.checked = isDefault;
+            cb.parentElement.classList.toggle('checked', isDefault);
+        });
+
+        updateCategoryCheckboxes();
+        saveSettings();
+    });
+
+    function purgeSpeechQueue() {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+        }
+    }
+
+    function getSelectedVoice() {
+        if (!('speechSynthesis' in window)) return null;
+        const selectedName = voiceSelect.value;
+        const voices = window.speechSynthesis.getVoices();
+        
+        if (selectedName) {
+            const found = voices.find(v => v.name === selectedName);
+            if (found) return found;
+        }
+
+        return voices.find(v => v.lang.startsWith('en') && (
+            v.name.includes('Google') || 
+            v.name.includes('Natural') || 
+            v.name.includes('Online') || 
+            v.name.includes('Premium')
+        )) || voices.find(v => v.lang.startsWith('en')) || voices[0];
+    }
+
+    function speakSingleToken(token) {
+        return new Promise((resolve) => {
+            if (stopRequested) {
+                resolve();
+                return;
+            }
+
+            let spokenWord;
+            if (chkUsePhonetics.checked && NATO_PHONETICS[token]) {
+                spokenWord = NATO_PHONETICS[token];
+            } else {
+                spokenWord = SPEECH_PRONUNCIATION[token] || token;
+            }
+
+            const utterance = new SpeechSynthesisUtterance(spokenWord);
+            utterance.rate = 1.0;
+            utterance.volume = 1.0;
+            
+            const selectedVoice = getSelectedVoice();
+            if (selectedVoice) utterance.voice = selectedVoice;
+
+            utterance.onend = () => resolve();
+            utterance.onerror = () => resolve();
+            
+            window.speechSynthesis.speak(utterance);
+        });
+    }
+
+    async function speakGroup(groupString, leadDelayMs = 700) {
+        if (stopRequested) return;
+
+        if (leadDelayMs > 0) {
+            await cancellableSleep(leadDelayMs);
+        }
+
+        if (stopRequested) return;
+
+        purgeSpeechQueue();
+
+        const tokenRegex = /<[^>]+>|./g;
+        const tokens = groupString.match(tokenRegex) || [];
+
+        for (let i = 0; i < tokens.length; i++) {
+            if (stopRequested) break;
+
+            await speakSingleToken(tokens[i]);
+        }
+    }
+
+    async function readOutputText() {
+        const textToRead = txtOutput.value.trim();
+
+        if (!textToRead) {
+            alert("Run a session first to generate output text!");
+            return;
+        }
+
+        if (!('speechSynthesis' in window)) {
+            alert("Text-to-speech is not supported by your browser.");
+            return;
+        }
+
+        stopRequested = false;
+        isReadingAll = true;
+        btnStart.disabled = true;
+        btnStop.disabled = false;
+        btnSpeak.disabled = true;
+        statusDot.classList.add('active');
+        lblStatus.textContent = "Status: Reading Text...";
+
+        purgeSpeechQueue();
+
+        const groups = textToRead.split(/\s+/);
+
+        for (let g = 0; g < groups.length; g++) {
+            if (stopRequested) break;
+            
+            await speakGroup(groups[g], 200);
+
+            if (g < groups.length - 1 && !stopRequested) {
+                await cancellableSleep(500);
+            }
+        }
+
+        isReadingAll = false;
+        if (!isRunning) {
+            btnStart.disabled = false;
+            btnStop.disabled = true;
+            btnSpeak.disabled = false;
+            statusDot.classList.remove('active');
+            lblStatus.textContent = "Status: Ready";
+        }
+    }
+
+    btnSpeak.addEventListener('click', readOutputText);
+
+    function calculateTimings(charWpm, effWpm) {
+        const dotLen = 1.2 / charWpm;
+        const dashLen = 3 * dotLen;
+        const intraGap = dotLen;
+        let charGap;
+
+        if (effWpm >= charWpm) {
+            charGap = 3 * dotLen;
+        } else {
+            const ta = (60.0 / effWpm - 37.2 / charWpm) / 19.0;
+            charGap = 3 * ta;
+        }
+
+        return { dotLen, dashLen, intraGap, charGap };
+    }
+
+    function cancellableSleep(ms) {
+        return new Promise((resolve) => {
+            const checkInterval = 20;
+            let elapsed = 0;
+            const timer = setInterval(() => {
+                elapsed += checkInterval;
+                if (stopRequested || elapsed >= ms) {
+                    clearInterval(timer);
+                    resolve();
+                }
+            }, checkInterval);
+        });
+    }
+
+    function createCharacterBuffer(pattern, dotLen, dashLen, intraGap, freq, volFraction = 0.35) {
+        const sampleRate = audioCtx.sampleRate;
+        
+        let totalTime = 0;
+        for (let i = 0; i < pattern.length; i++) {
+            totalTime += (pattern[i] === '.' ? dotLen : dashLen);
+            if (i < pattern.length - 1) totalTime += intraGap;
+        }
+
+        const totalSamples = Math.ceil(totalTime * sampleRate);
+        const buffer = audioCtx.createBuffer(1, totalSamples, sampleRate);
+        const channelData = buffer.getChannelData(0);
+
+        let currentSample = 0;
+        const rampSamples = Math.floor(sampleRate * 0.003);
+
+        for (let i = 0; i < pattern.length; i++) {
+            const duration = (pattern[i] === '.' ? dotLen : dashLen);
+            const durationSamples = Math.floor(duration * sampleRate);
+
+            for (let s = 0; s < durationSamples; s++) {
+                if (currentSample + s >= totalSamples) break;
+                
+                let amplitude = volFraction;
+                if (s < rampSamples) {
+                    amplitude *= (s / rampSamples);
+                } else if (s > durationSamples - rampSamples) {
+                    amplitude *= ((durationSamples - s) / rampSamples);
+                }
+
+                const time = (currentSample + s) / sampleRate;
+                channelData[currentSample + s] = amplitude * Math.sin(2 * Math.PI * freq * time);
+            }
+
+            currentSample += durationSamples;
+
+            if (i < pattern.length - 1) {
+                const gapSamples = Math.floor(intraGap * sampleRate);
+                currentSample += gapSamples;
+            }
+        }
+
+        return buffer;
+    }
+
+    function playBuffer(buffer) {
+        return new Promise((resolve) => {
+            if (stopRequested || !audioCtx) {
+                resolve();
+                return;
+            }
+
+            const source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(audioCtx.destination);
+            currentSourceNode = source;
+
+            source.onended = () => {
+                currentSourceNode = null;
+                resolve();
+            };
+
+            source.start();
+        });
+    }
+
+    function setUIState(running) {
+        isRunning = running;
+        btnStart.disabled = running;
+        btnStop.disabled = !running;
+        btnSpeak.disabled = running;
+        
+        if (running) {
+            statusDot.classList.add('active');
+            lblStatus.textContent = "Status: Sending Morse...";
+        } else {
+            statusDot.classList.remove('active');
+            lblStatus.textContent = "Status: Ready";
+        }
+    }
+
+    function stopPractice() {
+        stopRequested = true;
+        purgeSpeechQueue();
+
+        if (currentSourceNode) {
+            try {
+                currentSourceNode.stop();
+            } catch(e) {}
+            currentSourceNode = null;
+        }
+
+        releaseWakeLock();
+        isReadingAll = false;
+        setUIState(false);
+    }
+
+    btnStop.addEventListener('click', stopPractice);
+
+    async function startPractice() {
+        const pool = getSelectedCharacters();
+
+        if (pool.length === 0) {
+            alert("Please select at least one character in the grid!");
+            return;
+        }
+
+        const charWpm = parseFloat(inputCharWpm.value);
+        const effWpm = parseFloat(inputEffWpm.value);
+        const startDelaySec = parseFloat(inputStartDelaySec.value);
+        const pauseSec = parseFloat(inputPauseSec.value);
+        const voiceDelaySec = parseFloat(inputVoiceDelaySec.value);
+        const pitchHz = parseFloat(inputPitchHz.value);
+        const groupSize = parseInt(inputGroupSize.value, 10);
+        const totalGroups = parseInt(inputTotalGroups.value, 10);
+        const toneVolPercent = parseFloat(inputToneVol.value);
+        const autoRead = chkAutoRead.checked;
+
+        if (effWpm > charWpm) {
+            alert("For Farnsworth spacing, Effective WPM should be less than or equal to Character WPM.");
+            return;
+        }
+
+        stopRequested = false;
+        setUIState(true);
+        txtOutput.value = "";
+
+        await requestWakeLock();
+
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+        }
+
+        const volFraction = Math.max(0.01, Math.min(1.0, toneVolPercent / 100.0));
+        const { dotLen, dashLen, intraGap, charGap } = calculateTimings(charWpm, effWpm);
+
+        const preparedBuffers = {};
+        for (const ch of pool) {
+            const pattern = MORSE_CODE[ch];
+            if (pattern) {
+                preparedBuffers[ch] = createCharacterBuffer(pattern, dotLen, dashLen, intraGap, pitchHz, volFraction);
+            }
+        }
+
+        const fullGeneratedSession = [];
+        for (let g = 0; g < totalGroups; g++) {
+            const currentGroup = [];
+            for (let c = 0; c < groupSize; c++) {
+                const randChar = pool[Math.floor(Math.random() * pool.length)];
+                currentGroup.push(randChar);
+            }
+            fullGeneratedSession.push(currentGroup.join(''));
+        }
+
+        lblStatus.textContent = `Status: Delaying ${startDelaySec}s...`;
+        await cancellableSleep(startDelaySec * 1000);
+
+        for (let g = 0; g < fullGeneratedSession.length; g++) {
+            if (stopRequested) break;
+
+            const groupStr = fullGeneratedSession[g];
+            lblStatus.textContent = `Status: Sending Group ${g + 1} of ${totalGroups}`;
+
+            const tokenRegex = /<[^>]+>|./g;
+            const characters = groupStr.match(tokenRegex) || [];
+
+            for (let c = 0; c < characters.length; c++) {
+                if (stopRequested) break;
+
+                const ch = characters[c];
+                const buf = preparedBuffers[ch];
+
+                if (buf) {
+                    await playBuffer(buf);
+                }
+
+                if (c < characters.length - 1 && !stopRequested) {
+                    await cancellableSleep(charGap * 1000);
+                }
+            }
+
+            if (stopRequested) break;
+
+            if (autoRead) {
+                txtOutput.value += (txtOutput.value ? " " : "") + groupStr;
+                txtOutput.scrollTop = txtOutput.scrollHeight;
+                
+                lblStatus.textContent = `Status: Reading Group ${g + 1}...`;
+                await speakGroup(groupStr, voiceDelaySec * 1000);
+            }
+
+            if (g < fullGeneratedSession.length - 1 && !stopRequested) {
+                lblStatus.textContent = `Status: Group Pause (${pauseSec}s)...`;
+                await cancellableSleep(pauseSec * 1000);
+            }
+        }
+
+        if (!autoRead && !stopRequested) {
+            txtOutput.value = fullGeneratedSession.join(' ');
+        }
+
+        if (!stopRequested) {
+            await speakSingleToken("End of session");
+            lblStatus.textContent = "Status: Session Complete";
+        }
+
+        releaseWakeLock();
+        setUIState(false);
+    }
+
+    btnStart.addEventListener('click', startPractice);
+
+    buildCharGrid();
+</script>
+
+</body>
+</html>
