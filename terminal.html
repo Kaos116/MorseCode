@@ -4,17 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pico CP/M Web Terminal</title>
-  
-  <!-- xterm.js CDN (unpkg) -->
-  <link rel="stylesheet" href="https://unpkg.com/xterm@5.3.0/css/xterm.css" />
-  <script src="https://unpkg.com/xterm@5.3.0/lib/xterm.js"></script>
-
   <style>
     * { box-sizing: border-box; }
     body {
       background-color: #121212;
       color: #e0e0e0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       margin: 0;
       padding: 20px;
       display: flex;
@@ -31,7 +26,7 @@
       background-color: #007acc;
       color: white;
       border: none;
-      padding: 8px 16px;
+      padding: 10px 18px;
       font-size: 14px;
       font-weight: bold;
       border-radius: 4px;
@@ -40,13 +35,29 @@
     button:hover { background-color: #005999; }
     button:disabled { background-color: #444; cursor: not-allowed; }
     #status { font-size: 14px; color: #aaa; }
-    #terminal-container {
+    #terminal {
       flex: 1;
       background: #000;
-      padding: 5px;
+      color: #00FF00;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 16px;
+      padding: 12px;
       border-radius: 4px;
       border: 1px solid #333;
+      white-space: pre-wrap;
+      word-break: break-all;
+      overflow-y: auto;
+      outline: none;
     }
+    .cursor {
+      display: inline-block;
+      width: 9px;
+      height: 18px;
+      background-color: #00FF00;
+      vertical-align: middle;
+      animation: blink 1s infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
   </style>
 </head>
 <body>
@@ -56,96 +67,130 @@
     <span id="status">Disconnected</span>
   </header>
 
-  <div id="terminal-container"></div>
+  <!-- tabindex allows the terminal div to capture keystrokes directly -->
+  <div id="terminal" tabindex="0"></div>
 
   <script>
-    window.addEventListener('DOMContentLoaded', () => {
-      const connectBtn = document.getElementById('connectBtn');
-      const statusText = document.getElementById('status');
+    const connectBtn = document.getElementById('connectBtn');
+    const statusText = document.getElementById('status');
+    const termDiv = document.getElementById('terminal');
 
-      // Check if xterm loaded properly
-      if (typeof Terminal === 'undefined') {
-        alert('xterm.js failed to load. Please check your internet connection or ad blocker.');
+    let port, writer, reader;
+    let buffer = "=== Pico CP/M Web Terminal (Zero-Dependency) ===\n";
+
+    // Basic ANSI/VT100 Sequence Stripper & Renderer
+    function render() {
+      // Clean buffer for raw display while preserving standard line breaks
+      let cleanText = buffer
+        .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '') // Strip escape positioning codes
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n');
+
+      termDiv.innerText = cleanText;
+      
+      // Append blinking terminal cursor
+      const cursorElem = document.createElement('span');
+      cursorElem.className = 'cursor';
+      termDiv.appendChild(cursorElem);
+
+      // Auto-scroll to bottom
+      termDiv.scrollTop = termDiv.scrollHeight;
+    }
+
+    render();
+
+    // Check Web Serial support
+    if (!('serial' in navigator)) {
+      buffer += "\n[ERROR] Web Serial API is NOT supported in this browser or context!\nMake sure you are using Chrome/Edge over HTTPS.\n";
+      render();
+    }
+
+    connectBtn.addEventListener('click', async () => {
+      if (!('serial' in navigator)) {
+        alert('Web Serial API is not supported in this environment.');
         return;
       }
 
-      // 1. Initialize VT100 Terminal
-      const term = new Terminal({
-        cursorBlink: true,
-        cols: 80,
-        rows: 24,
-        theme: {
-          background: '#000000',
-          foreground: '#00FF00',
-          cursor: '#00FF00'
-        },
-        fontFamily: 'Courier New, Courier, monospace',
-        fontSize: 16
-      });
+      try {
+        statusText.innerText = "Status: Prompting for port...";
+        
+        // Request Serial Port from browser
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
 
-      term.open(document.getElementById('terminal-container'));
-      term.writeln('=== Pico CP/M Web Serial Terminal ===');
+        statusText.innerText = "Status: Connected";
+        statusText.style.color = "#00ff00";
+        connectBtn.disabled = true;
+        termDiv.focus();
 
-      if (!('serial' in navigator)) {
-        term.writeln('\r\n\x1b[31m[ERROR] Web Serial API is NOT supported in this browser/context!\x1b[0m');
-      } else {
-        term.writeln('Ready. Click "Connect to Pico CP/M" to select your USB port.\r\n');
+        // Setup Output Stream
+        const textEncoder = new TextEncoderStream();
+        textEncoder.readable.pipeTo(port.writable);
+        writer = textEncoder.writable.getWriter();
+
+        // Kickstart CP/M prompt with a carriage return
+        await writer.write('\r');
+
+        // Setup Input Stream
+        const textDecoder = new TextDecoderStream();
+        port.readable.pipeTo(textDecoder.writable);
+        reader = textDecoder.readable.getReader();
+
+        // Read incoming serial data from Pico
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) {
+            reader.releaseLock();
+            break;
+          }
+          if (value) {
+            buffer += value;
+            render();
+          }
+        }
+
+      } catch (err) {
+        console.error('Serial Error:', err);
+        if (err.name === 'NotFoundError') {
+          statusText.innerText = "Status: Selection canceled";
+          statusText.style.color = "#aaa";
+        } else {
+          statusText.innerText = `Error: ${err.message}`;
+          statusText.style.color = "#ff4444";
+        }
+        connectBtn.disabled = false;
+      }
+    });
+
+    // Capture key presses and transmit to Pico over Serial
+    window.addEventListener('keydown', async (e) => {
+      if (!writer) return;
+
+      let keyToSend = e.key;
+
+      if (e.key === 'Enter') {
+        keyToSend = '\r';
+      } else if (e.key === 'Backspace') {
+        keyToSend = '\b';
+      } else if (e.key === 'Tab') {
+        keyToSend = '\t';
+        e.preventDefault();
+      } else if (e.ctrlKey && e.key.length === 1) {
+        // Handle Ctrl+C, Ctrl+Z, etc. for CP/M
+        const code = e.key.toUpperCase().charCodeAt(0) - 64;
+        if (code >= 1 && code <= 26) {
+          keyToSend = String.fromCharCode(code);
+        }
+      } else if (e.key.length > 1) {
+        // Ignore non-printable modifier keys (Shift, Alt, etc.)
+        return;
       }
 
-      let port, reader, writer;
-
-      // 2. Connect Button Event
-      connectBtn.addEventListener('click', async () => {
-        if (!('serial' in navigator)) {
-          alert('Web Serial API is disabled or unsupported.');
-          return;
-        }
-
-        try {
-          statusText.innerText = "Status: Prompting for port...";
-          
-          port = await navigator.serial.requestPort();
-          await port.open({ baudRate: 115200 });
-
-          statusText.innerText = "Status: Connected";
-          statusText.style.color = "#00ff00";
-          connectBtn.disabled = true;
-
-          const textDecoder = new TextDecoderStream();
-          port.readable.pipeTo(textDecoder.writable);
-          reader = textDecoder.readable.getReader();
-
-          const textEncoder = new TextEncoderStream();
-          textEncoder.readable.pipeTo(port.writable);
-          writer = textEncoder.writable.getWriter();
-
-          await writer.write('\r');
-
-          term.onData(async (data) => {
-            if (writer) await writer.write(data);
-          });
-
-          while (true) {
-            const { value, done } = await reader.read();
-            if (done) {
-              reader.releaseLock();
-              break;
-            }
-            if (value) term.write(value);
-          }
-
-        } catch (err) {
-          console.error('Serial Error:', err);
-          if (err.name === 'NotFoundError') {
-            statusText.innerText = "Status: Selection canceled";
-            statusText.style.color = "#aaa";
-          } else {
-            statusText.innerText = `Error: ${err.message}`;
-            statusText.style.color = "#ff4444";
-          }
-          connectBtn.disabled = false;
-        }
-      });
+      try {
+        await writer.write(keyToSend);
+      } catch (err) {
+        console.error("Write error:", err);
+      }
     });
   </script>
 </body>
