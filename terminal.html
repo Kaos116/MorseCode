@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pico CP/M Web Terminal</title>
   
-  <!-- xterm.js CDN -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.3.0/css/xterm.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.3.0/lib/xterm.js"></script>
+  <!-- xterm.js CDN (unpkg) -->
+  <link rel="stylesheet" href="https://unpkg.com/xterm@5.3.0/css/xterm.css" />
+  <script src="https://unpkg.com/xterm@5.3.0/lib/xterm.js"></script>
 
   <style>
     * { box-sizing: border-box; }
@@ -59,86 +59,93 @@
   <div id="terminal-container"></div>
 
   <script>
-    const connectBtn = document.getElementById('connectBtn');
-    const statusText = document.getElementById('status');
+    window.addEventListener('DOMContentLoaded', () => {
+      const connectBtn = document.getElementById('connectBtn');
+      const statusText = document.getElementById('status');
 
-    // 1. Initialize VT100 Terminal Engine
-    const term = new Terminal({
-      cursorBlink: true,
-      cols: 80,
-      rows: 24,
-      theme: {
-        background: '#000000',
-        foreground: '#00FF00', // Classic Amber: '#FFB000', Green: '#00FF00', Paper: '#C0C0C0'
-        cursor: '#00FF00'
-      },
-      fontFamily: 'Courier New, Courier, monospace',
-      fontSize: 16
-    });
-
-    term.open(document.getElementById('terminal-container'));
-    term.writeln('=== Pico CP/M Web Serial Terminal ===');
-    term.writeln('Click "Connect to Pico CP/M" to select your USB port.\r\n');
-
-    let port;
-    let reader;
-    let writer;
-
-    // 2. Handle Web Serial Connection
-    connectBtn.addEventListener('click', async () => {
-      if (!('serial' in navigator)) {
-        alert('Web Serial API is not supported in this browser. Please use Chrome or Edge.');
+      // Check if xterm loaded properly
+      if (typeof Terminal === 'undefined') {
+        alert('xterm.js failed to load. Please check your internet connection or ad blocker.');
         return;
       }
 
-      try {
-        // Request port selection from user
-        port = await navigator.serial.requestPort();
-        
-        // CP/M over USB CDC usually ignores physical baud rate, but 115200 is typical standard
-        await port.open({ baudRate: 115200 });
+      // 1. Initialize VT100 Terminal
+      const term = new Terminal({
+        cursorBlink: true,
+        cols: 80,
+        rows: 24,
+        theme: {
+          background: '#000000',
+          foreground: '#00FF00',
+          cursor: '#00FF00'
+        },
+        fontFamily: 'Courier New, Courier, monospace',
+        fontSize: 16
+      });
 
-        statusText.innerText = "Status: Connected";
-        statusText.style.color = "#00ff00";
-        connectBtn.disabled = true;
+      term.open(document.getElementById('terminal-container'));
+      term.writeln('=== Pico CP/M Web Serial Terminal ===');
 
-        // Set up Streams
-        const textDecoder = new TextDecoderStream();
-        const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
-        reader = textDecoder.readable.getReader();
+      if (!('serial' in navigator)) {
+        term.writeln('\r\n\x1b[31m[ERROR] Web Serial API is NOT supported in this browser/context!\x1b[0m');
+      } else {
+        term.writeln('Ready. Click "Connect to Pico CP/M" to select your USB port.\r\n');
+      }
 
-        const textEncoder = new TextEncoderStream();
-        const writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
-        writer = textEncoder.writable.getWriter();
+      let port, reader, writer;
 
-        // Send a carriage return to force CP/M to redraw its prompt
-        await writer.write('\r');
-
-        // 3. Send User Keystrokes to Pico
-        term.onData(async (data) => {
-          if (writer) {
-            await writer.write(data);
-          }
-        });
-
-        // 4. Read Incoming Serial Data from Pico to Terminal
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) {
-            reader.releaseLock();
-            break;
-          }
-          if (value) {
-            term.write(value);
-          }
+      // 2. Connect Button Event
+      connectBtn.addEventListener('click', async () => {
+        if (!('serial' in navigator)) {
+          alert('Web Serial API is disabled or unsupported.');
+          return;
         }
 
-      } catch (err) {
-        console.error('Serial Error:', err);
-        statusText.innerText = `Error: ${err.message}`;
-        statusText.style.color = "#ff4444";
-        connectBtn.disabled = false;
-      }
+        try {
+          statusText.innerText = "Status: Prompting for port...";
+          
+          port = await navigator.serial.requestPort();
+          await port.open({ baudRate: 115200 });
+
+          statusText.innerText = "Status: Connected";
+          statusText.style.color = "#00ff00";
+          connectBtn.disabled = true;
+
+          const textDecoder = new TextDecoderStream();
+          port.readable.pipeTo(textDecoder.writable);
+          reader = textDecoder.readable.getReader();
+
+          const textEncoder = new TextEncoderStream();
+          textEncoder.readable.pipeTo(port.writable);
+          writer = textEncoder.writable.getWriter();
+
+          await writer.write('\r');
+
+          term.onData(async (data) => {
+            if (writer) await writer.write(data);
+          });
+
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) {
+              reader.releaseLock();
+              break;
+            }
+            if (value) term.write(value);
+          }
+
+        } catch (err) {
+          console.error('Serial Error:', err);
+          if (err.name === 'NotFoundError') {
+            statusText.innerText = "Status: Selection canceled";
+            statusText.style.color = "#aaa";
+          } else {
+            statusText.innerText = `Error: ${err.message}`;
+            statusText.style.color = "#ff4444";
+          }
+          connectBtn.disabled = false;
+        }
+      });
     });
   </script>
 </body>
