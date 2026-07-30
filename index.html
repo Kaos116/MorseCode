@@ -65,7 +65,7 @@
             border-color: #212836;
         }
 
-        .card-title, .sub-label {
+        .card-title {
             font-size: 0.85em;
             font-weight: 700;
             color: var(--text-muted);
@@ -826,20 +826,23 @@
     function populateVoiceList() {
         if (!('speechSynthesis' in window)) return;
 
-        availableVoices = window.speechSynthesis.getVoices().filter(v => v.lang.startsWith('en'));
+        availableVoices = window.speechSynthesis.getVoices();
+        
+        // Filter english voices if available, otherwise show all
+        const englishVoices = availableVoices.filter(v => v.lang.startsWith('en'));
+        const displayVoices = englishVoices.length > 0 ? englishVoices : availableVoices;
+
+        const currentVal = voiceSelect.value;
         voiceSelect.innerHTML = '';
 
-        if (availableVoices.length === 0) {
-            const opt = document.createElement('option');
-            opt.value = "";
-            opt.textContent = "Default Voice";
-            voiceSelect.appendChild(opt);
-            return;
-        }
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = "";
+        defaultOpt.textContent = "Default Voice";
+        voiceSelect.appendChild(defaultOpt);
 
-        availableVoices.forEach((voice) => {
+        displayVoices.forEach((voice) => {
             const opt = document.createElement('option');
-            opt.value = voice.name;
+            opt.value = voice.voiceURI || voice.name;
             opt.textContent = `${voice.name} (${voice.lang})`;
             voiceSelect.appendChild(opt);
         });
@@ -847,6 +850,8 @@
         const savedConfig = loadSavedSettings();
         if (savedConfig?.selectedVoiceName) {
             voiceSelect.value = savedConfig.selectedVoiceName;
+        } else if (currentVal) {
+            voiceSelect.value = currentVal;
         }
     }
 
@@ -1018,20 +1023,11 @@
 
     function getSelectedVoice() {
         if (!('speechSynthesis' in window)) return null;
-        const selectedName = voiceSelect.value;
-        const voices = window.speechSynthesis.getVoices();
-        
-        if (selectedName) {
-            const found = voices.find(v => v.name === selectedName);
-            if (found) return found;
-        }
+        const selectedIdentifier = voiceSelect.value;
+        if (!selectedIdentifier) return null;
 
-        return voices.find(v => v.lang.startsWith('en') && (
-            v.name.includes('Google') || 
-            v.name.includes('Natural') || 
-            v.name.includes('Online') || 
-            v.name.includes('Premium')
-        )) || voices.find(v => v.lang.startsWith('en')) || voices[0];
+        const voices = window.speechSynthesis.getVoices();
+        return voices.find(v => (v.voiceURI && v.voiceURI === selectedIdentifier) || v.name === selectedIdentifier) || null;
     }
 
     function speakSingleToken(token) {
@@ -1053,7 +1049,10 @@
             utterance.volume = 1.0;
             
             const selectedVoice = getSelectedVoice();
-            if (selectedVoice) utterance.voice = selectedVoice;
+            if (selectedVoice) {
+                utterance.voice = selectedVoice;
+                utterance.lang = selectedVoice.lang;
+            }
 
             utterance.onend = () => resolve();
             utterance.onerror = () => resolve();
