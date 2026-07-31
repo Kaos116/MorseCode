@@ -3,30 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pico CP/M Web Terminal</title>
+  <title>Pico CP/M Web Terminal (Viewport Scaled 80x24)</title>
   <style>
     * { box-sizing: border-box; }
-    body {
+    html, body {
       background-color: #121212;
       color: #e0e0e0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       margin: 0;
-      padding: 20px;
+      padding: 10px;
+      height: 100vh;
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      overflow: hidden;
     }
     header {
       display: flex;
       gap: 15px;
       align-items: center;
-      margin-bottom: 15px;
+      margin-bottom: 10px;
+      flex-shrink: 0;
     }
     button {
       background-color: #007acc;
       color: white;
       border: none;
-      padding: 10px 18px;
+      padding: 8px 16px;
       font-size: 14px;
       font-weight: bold;
       border-radius: 4px;
@@ -35,26 +37,46 @@
     button:hover { background-color: #005999; }
     button:disabled { background-color: #444; cursor: not-allowed; }
     #status { font-size: 14px; color: #aaa; }
-    #terminal {
+
+    /* Outer Container tracking container queries */
+    .terminal-wrapper {
       flex: 1;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      border: 2px solid #333;
+      border-radius: 6px;
+      padding: 4px;
+      container-type: inline-size; /* Enables Container Query Units (cqw) */
+      overflow: hidden;
+    }
+
+    /* Fixed 80x24 grid box scaling font with container width */
+    #terminal {
       background: #000;
       color: #00FF00;
       font-family: 'Courier New', Courier, monospace;
-      font-size: 16px;
-      padding: 12px;
-      border-radius: 4px;
-      border: 1px solid #333;
-      white-space: pre-wrap;
-      word-break: break-all;
-      overflow-y: auto;
+      line-height: 1.15;
+      white-space: pre;
+      overflow: hidden;
       outline: none;
+      width: 100%;
+      height: 100%;
+      
+      /* 
+         80 characters across 100% container width.
+         Courier New width-to-height ratio is ~0.60.
+         (100cqw / 80) / 0.60 = ~2.08cqw font size.
+      */
+      font-size: 2.08cqw; 
     }
+
     .cursor {
       display: inline-block;
-      width: 9px;
-      height: 18px;
+      width: 1ch;
+      height: 1.15em;
       background-color: #00FF00;
-      vertical-align: middle;
+      vertical-align: bottom;
       animation: blink 1s infinite;
     }
     @keyframes blink { 50% { opacity: 0; } }
@@ -67,54 +89,72 @@
     <span id="status">Disconnected</span>
   </header>
 
-  <!-- tabindex allows the terminal div to capture keystrokes directly -->
-  <div id="terminal" tabindex="0"></div>
+  <div class="terminal-wrapper">
+    <div id="terminal" tabindex="0"></div>
+  </div>
 
   <script>
     const connectBtn = document.getElementById('connectBtn');
     const statusText = document.getElementById('status');
     const termDiv = document.getElementById('terminal');
 
+    const COLS = 80;
+    const ROWS = 24;
+
     let port, writer, reader;
-    let buffer = "=== Pico CP/M Web Terminal (Zero-Dependency) ===\n";
+    let lines = Array(ROWS).fill(""); 
+    let cursorCol = 0;
+    let cursorRow = 0;
 
-    // Basic ANSI/VT100 Sequence Stripper & Renderer
-    function render() {
-      // Clean buffer for raw display while preserving standard line breaks
-      let cleanText = buffer
-        .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '') // Strip escape positioning codes
-        .replace(/\r\n/g, '\n')
-        .replace(/\r/g, '\n');
+    function appendText(text) {
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
 
-      termDiv.innerText = cleanText;
-      
-      // Append blinking terminal cursor
-      const cursorElem = document.createElement('span');
-      cursorElem.className = 'cursor';
-      termDiv.appendChild(cursorElem);
-
-      // Auto-scroll to bottom
-      termDiv.scrollTop = termDiv.scrollHeight;
-    }
-
-    render();
-
-    // Check Web Serial support
-    if (!('serial' in navigator)) {
-      buffer += "\n[ERROR] Web Serial API is NOT supported in this browser or context!\nMake sure you are using Chrome/Edge over HTTPS.\n";
+        if (char === '\r') {
+          cursorCol = 0;
+        } else if (char === '\n') {
+          cursorRow++;
+          if (cursorRow >= ROWS) {
+            lines.shift();
+            lines.push("");
+            cursorRow = ROWS - 1;
+          }
+        } else if (char === '\b') {
+          if (cursorCol > 0) cursorCol--;
+        } else {
+          let currentLine = lines[cursorRow] || "";
+          if (cursorCol < COLS) {
+            lines[cursorRow] = currentLine.substring(0, cursorCol) + char + currentLine.substring(cursorCol + 1);
+            cursorCol++;
+          }
+        }
+      }
       render();
     }
 
+    function render() {
+      let displayOutput = lines.map((line, idx) => {
+        let padded = line.padEnd(COLS, ' ').substring(0, COLS);
+        if (idx === cursorRow) {
+          return padded.substring(0, cursorCol) + '<span class="cursor"></span>' + padded.substring(cursorCol + 1);
+        }
+        return padded;
+      }).join('\n');
+
+      termDiv.innerHTML = displayOutput;
+    }
+
+    appendText("=== Pico CP/M Web Terminal (Native CSS Scaled) ===\r\n");
+
+    if (!('serial' in navigator)) {
+      appendText("[ERROR] Web Serial API is NOT supported in this browser!\r\n");
+    }
+
     connectBtn.addEventListener('click', async () => {
-      if (!('serial' in navigator)) {
-        alert('Web Serial API is not supported in this environment.');
-        return;
-      }
+      if (!('serial' in navigator)) return;
 
       try {
         statusText.innerText = "Status: Prompting for port...";
-        
-        // Request Serial Port from browser
         port = await navigator.serial.requestPort();
         await port.open({ baudRate: 115200 });
 
@@ -123,20 +163,16 @@
         connectBtn.disabled = true;
         termDiv.focus();
 
-        // Setup Output Stream
         const textEncoder = new TextEncoderStream();
         textEncoder.readable.pipeTo(port.writable);
         writer = textEncoder.writable.getWriter();
 
-        // Kickstart CP/M prompt with a carriage return
         await writer.write('\r');
 
-        // Setup Input Stream
         const textDecoder = new TextDecoderStream();
         port.readable.pipeTo(textDecoder.writable);
         reader = textDecoder.readable.getReader();
 
-        // Read incoming serial data from Pico
         while (true) {
           const { value, done } = await reader.read();
           if (done) {
@@ -144,8 +180,8 @@
             break;
           }
           if (value) {
-            buffer += value;
-            render();
+            let clean = value.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+            appendText(clean);
           }
         }
 
@@ -162,7 +198,6 @@
       }
     });
 
-    // Capture key presses and transmit to Pico over Serial
     window.addEventListener('keydown', async (e) => {
       if (!writer) return;
 
@@ -176,13 +211,11 @@
         keyToSend = '\t';
         e.preventDefault();
       } else if (e.ctrlKey && e.key.length === 1) {
-        // Handle Ctrl+C, Ctrl+Z, etc. for CP/M
         const code = e.key.toUpperCase().charCodeAt(0) - 64;
         if (code >= 1 && code <= 26) {
           keyToSend = String.fromCharCode(code);
         }
       } else if (e.key.length > 1) {
-        // Ignore non-printable modifier keys (Shift, Alt, etc.)
         return;
       }
 
