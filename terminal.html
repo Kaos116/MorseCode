@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pico CP/M Web Terminal (Viewport Scaled 80x24)</title>
+  <title>Pico CP/M Web Terminal (SVG Scaled 80x24)</title>
   <style>
     * { box-sizing: border-box; }
     html, body {
@@ -38,45 +38,37 @@
     button:disabled { background-color: #444; cursor: not-allowed; }
     #status { font-size: 14px; color: #aaa; }
 
-    /* Outer Container tracking container queries */
-    .terminal-wrapper {
+    /* Terminal Container fills remaining screen height */
+    .terminal-container {
       flex: 1;
       width: 100%;
       height: 100%;
       background: #000;
       border: 2px solid #333;
       border-radius: 6px;
-      padding: 4px;
-      container-type: inline-size; /* Enables Container Query Units (cqw) */
+      padding: 5px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
       overflow: hidden;
     }
 
-    /* Fixed 80x24 grid box scaling font with container width */
-    #terminal {
-      background: #000;
-      color: #00FF00;
-      font-family: 'Courier New', Courier, monospace;
-      line-height: 1.15;
-      white-space: pre;
-      overflow: hidden;
-      outline: none;
+    /* SVG auto-scales like an image to fill 100% width/height */
+    svg {
       width: 100%;
       height: 100%;
-      
-      /* 
-         80 characters across 100% container width.
-         Courier New width-to-height ratio is ~0.60.
-         (100cqw / 80) / 0.60 = ~2.08cqw font size.
-      */
-      font-size: 2.08cqw; 
+      background-color: #000;
+    }
+
+    text {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 16px;
+      fill: #00FF00;
+      white-space: pre;
     }
 
     .cursor {
-      display: inline-block;
-      width: 1ch;
-      height: 1.15em;
-      background-color: #00FF00;
-      vertical-align: bottom;
+      fill: #00FF00;
       animation: blink 1s infinite;
     }
     @keyframes blink { 50% { opacity: 0; } }
@@ -89,17 +81,26 @@
     <span id="status">Disconnected</span>
   </header>
 
-  <div class="terminal-wrapper">
-    <div id="terminal" tabindex="0"></div>
+  <div class="terminal-container" id="termFrame" tabindex="0">
+    <!-- ViewBox locks an 80x24 coordinate system (80 cols * 9.6px width x 24 rows * 19.2px height) -->
+    <svg viewBox="0 0 768 460" preserveAspectRatio="xMinYMin meet" id="svgTerm">
+      <g id="textGroup"></g>
+      <!-- Blinking Cursor -->
+      <rect id="cursorElem" class="cursor" x="0" y="0" width="9.6" height="18" />
+    </svg>
   </div>
 
   <script>
     const connectBtn = document.getElementById('connectBtn');
     const statusText = document.getElementById('status');
-    const termDiv = document.getElementById('terminal');
+    const termFrame = document.getElementById('termFrame');
+    const textGroup = document.getElementById('textGroup');
+    const cursorElem = document.getElementById('cursorElem');
 
     const COLS = 80;
     const ROWS = 24;
+    const CHAR_WIDTH = 9.6;
+    const CHAR_HEIGHT = 19.2;
 
     let port, writer, reader;
     let lines = Array(ROWS).fill(""); 
@@ -133,18 +134,25 @@
     }
 
     function render() {
-      let displayOutput = lines.map((line, idx) => {
-        let padded = line.padEnd(COLS, ' ').substring(0, COLS);
-        if (idx === cursorRow) {
-          return padded.substring(0, cursorCol) + '<span class="cursor"></span>' + padded.substring(cursorCol + 1);
-        }
-        return padded;
-      }).join('\n');
+      // Clear SVG text elements
+      textGroup.innerHTML = '';
 
-      termDiv.innerHTML = displayOutput;
+      lines.forEach((line, rowIdx) => {
+        let padded = line.padEnd(COLS, ' ').substring(0, COLS);
+        
+        const textNode = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        textNode.setAttribute("x", "0");
+        textNode.setAttribute("y", (rowIdx + 1) * CHAR_HEIGHT - 4);
+        textNode.textContent = padded;
+        textGroup.appendChild(textNode);
+      });
+
+      // Update vector cursor coordinates
+      cursorElem.setAttribute("x", cursorCol * CHAR_WIDTH);
+      cursorElem.setAttribute("y", cursorRow * CHAR_HEIGHT);
     }
 
-    appendText("=== Pico CP/M Web Terminal (Native CSS Scaled) ===\r\n");
+    appendText("=== Pico CP/M Web Terminal (SVG Vector Scaled) ===\r\n");
 
     if (!('serial' in navigator)) {
       appendText("[ERROR] Web Serial API is NOT supported in this browser!\r\n");
@@ -161,7 +169,7 @@
         statusText.innerText = "Status: Connected";
         statusText.style.color = "#00ff00";
         connectBtn.disabled = true;
-        termDiv.focus();
+        termFrame.focus();
 
         const textEncoder = new TextEncoderStream();
         textEncoder.readable.pipeTo(port.writable);
