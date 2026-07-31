@@ -29,6 +29,7 @@
       align-items: center;
       overflow: hidden;
       position: relative;
+      outline: none; /* Removes the focus ring around the container */
     }
 
     /* SVG Monitor Screen with Bezel */
@@ -39,6 +40,7 @@
       border: 3px solid #444444;
       border-radius: 6px;
       box-shadow: 0 0 15px rgba(0, 0, 0, 0.9), inset 0 0 10px rgba(0, 0, 0, 0.8);
+      outline: none; /* Prevents focus rings on the SVG itself */
     }
 
     text {
@@ -291,7 +293,6 @@
         statusText.style.color = "#00ff00";
         connectBtn.disabled = true;
         
-        // Hide modal once connected and focus back to terminal
         toggleModal(false);
         termFrame.focus();
 
@@ -331,20 +332,17 @@
     });
 
     window.addEventListener('keydown', async (e) => {
-      // Intercept Ctrl+S / Cmd+S to toggle settings modal
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         toggleModal();
         return;
       }
 
-      // Close modal on Escape key
       if (e.key === 'Escape' && controlModal.classList.contains('active')) {
         toggleModal(false);
         return;
       }
 
-      // Do not send keypresses to serial port if modal is open
       if (controlModal.classList.contains('active')) return;
 
       if (!writer) return;
