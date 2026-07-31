@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pico CP/M Web Terminal (SVG Scaled 80x24)</title>
+  <title>Pico CP/M Web Terminal (Widescreen Stretch 80x24)</title>
   <style>
     * { box-sizing: border-box; }
     html, body {
@@ -38,7 +38,6 @@
     button:disabled { background-color: #444; cursor: not-allowed; }
     #status { font-size: 14px; color: #aaa; }
 
-    /* Terminal Container fills remaining screen height */
     .terminal-container {
       flex: 1;
       width: 100%;
@@ -53,7 +52,6 @@
       overflow: hidden;
     }
 
-    /* SVG auto-scales like an image to fill 100% width/height */
     svg {
       width: 100%;
       height: 100%;
@@ -62,7 +60,8 @@
 
     text {
       font-family: 'Courier New', Courier, monospace;
-      font-size: 16px;
+      font-size: 18px;
+      font-weight: bold;
       fill: #00FF00;
       white-space: pre;
     }
@@ -82,10 +81,8 @@
   </header>
 
   <div class="terminal-container" id="termFrame" tabindex="0">
-    <!-- ViewBox locks an 80x24 coordinate system (80 cols * 9.6px width x 24 rows * 19.2px height) -->
-    <svg viewBox="0 0 768 460" preserveAspectRatio="xMinYMin meet" id="svgTerm">
+    <svg viewBox="0 0 768 460" preserveAspectRatio="none" id="svgTerm">
       <g id="textGroup"></g>
-      <!-- Blinking Cursor -->
       <rect id="cursorElem" class="cursor" x="0" y="0" width="9.6" height="18" />
     </svg>
   </div>
@@ -134,7 +131,6 @@
     }
 
     function render() {
-      // Clear SVG text elements
       textGroup.innerHTML = '';
 
       lines.forEach((line, rowIdx) => {
@@ -142,17 +138,19 @@
         
         const textNode = document.createElementNS("http://www.w3.org/2000/svg", "text");
         textNode.setAttribute("x", "0");
-        textNode.setAttribute("y", (rowIdx + 1) * CHAR_HEIGHT - 4);
+        textNode.setAttribute("y", (rowIdx + 1) * CHAR_HEIGHT - 3);
+        // Force text to compress horizontally into exact 768px viewbox width
+        textNode.setAttribute("textLength", "768");
+        textNode.setAttribute("lengthAdjust", "spacingAndGlyphs");
         textNode.textContent = padded;
         textGroup.appendChild(textNode);
       });
 
-      // Update vector cursor coordinates
       cursorElem.setAttribute("x", cursorCol * CHAR_WIDTH);
       cursorElem.setAttribute("y", cursorRow * CHAR_HEIGHT);
     }
 
-    appendText("=== Pico CP/M Web Terminal (SVG Vector Scaled) ===\r\n");
+    appendText("=== Pico CP/M Web Terminal (Widescreen 80x24) ===\r\n");
 
     if (!('serial' in navigator)) {
       appendText("[ERROR] Web Serial API is NOT supported in this browser!\r\n");
