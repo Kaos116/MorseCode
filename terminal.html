@@ -7,7 +7,6 @@
   <style>
     * { box-sizing: border-box; }
 
-    /* CSS Theme Variables (Defaults to Green) */
     :root {
       --term-color: #00ff00;
       --term-dim: #005500;
@@ -15,7 +14,6 @@
       --term-glow-bright: rgba(0, 255, 0, 0.8);
     }
 
-    /* Color Themes */
     body.theme-amber {
       --term-color: #ffb000;
       --term-dim: #885500;
@@ -42,7 +40,6 @@
       overflow: hidden;
     }
 
-    /* Outer Container */
     .terminal-container {
       flex: 1;
       width: 100%;
@@ -56,7 +53,6 @@
       outline: none;
     }
 
-    /* SVG Monitor Screen with Bezel */
     svg {
       max-width: 100%;
       max-height: 100%;
@@ -80,7 +76,6 @@
     }
     @keyframes blink { 50% { opacity: 0; } }
 
-    /* Modal Backdrop */
     .modal-overlay {
       position: fixed;
       top: 0;
@@ -102,7 +97,6 @@
       pointer-events: auto;
     }
 
-    /* Retro Terminal Modal Window */
     .modal-box {
       background-color: #0a0a0a;
       border: 2px solid var(--term-color);
@@ -144,11 +138,8 @@
       line-height: 1;
     }
 
-    .close-btn:hover {
-      color: var(--term-color);
-    }
+    .close-btn:hover { color: var(--term-color); }
 
-    /* Color Selection Group */
     .setting-group {
       display: flex;
       flex-direction: column;
@@ -162,10 +153,7 @@
       letter-spacing: 1px;
     }
 
-    .color-options {
-      display: flex;
-      gap: 10px;
-    }
+    .color-options { display: flex; gap: 10px; }
 
     .color-btn {
       flex: 1;
@@ -185,18 +173,12 @@
     .color-btn[data-theme="amber"] { color: #ffb000; }
     .color-btn[data-theme="white"] { color: #e0e0e0; }
 
-    .color-btn:hover {
-      border-color: #888;
-    }
-
-    .color-btn.active {
-      border-width: 2px;
-    }
+    .color-btn:hover { border-color: #888; }
+    .color-btn.active { border-width: 2px; }
     .color-btn[data-theme="green"].active { border-color: #00ff00; background-color: rgba(0, 255, 0, 0.1); }
     .color-btn[data-theme="amber"].active { border-color: #ffb000; background-color: rgba(255, 176, 0, 0.1); }
     .color-btn[data-theme="white"].active { border-color: #e0e0e0; background-color: rgba(224, 224, 224, 0.1); }
 
-    /* Retro Terminal Button Styling */
     .connect-btn {
       background-color: #0d0d0d;
       color: var(--term-color);
@@ -220,11 +202,6 @@
       box-shadow: 0 0 15px var(--term-glow-bright);
     }
 
-    .connect-btn:active:not(:disabled) {
-      transform: translateY(1px);
-      box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.8);
-    }
-
     .connect-btn:disabled {
       background-color: #1a1a1a;
       color: var(--term-dim);
@@ -233,11 +210,7 @@
       cursor: not-allowed;
     }
 
-    .status-text { 
-      font-size: 13px; 
-      color: #888888; 
-      letter-spacing: 0.5px;
-    }
+    .status-text { font-size: 13px; color: #888888; letter-spacing: 0.5px; }
 
     .modal-footer {
       font-size: 11px;
@@ -252,12 +225,10 @@
   <div class="terminal-container" id="termFrame" tabindex="0">
     <svg viewBox="-10 -10 788 480.8" preserveAspectRatio="xMidYMid meet" id="svgTerm">
       <g id="textGroup"></g>
-      <!-- Blinking Cursor -->
       <rect id="cursorElem" class="cursor" x="0" y="0" width="9.6" height="18" />
     </svg>
   </div>
 
-  <!-- Connection Settings Modal Overlay -->
   <div class="modal-overlay" id="controlModal">
     <div class="modal-box">
       <div class="modal-header">
@@ -267,7 +238,6 @@
 
       <div class="status-text" id="status">Status: Disconnected</div>
 
-      <!-- Theme Selector -->
       <div class="setting-group">
         <span class="setting-label">Display Color</span>
         <div class="color-options">
@@ -299,11 +269,14 @@
     const CHAR_HEIGHT = 19.2;
 
     let port, writer, reader;
-    let lines = Array(ROWS).fill(""); 
+    // 2D grid storing char matrix
+    let screen = Array.from({ length: ROWS }, () => Array(COLS).fill(' '));
     let cursorCol = 0;
     let cursorRow = 0;
 
-    // Theme Switcher Logic
+    let escapeBuffer = "";
+    let inEscape = false;
+
     function setTheme(theme) {
       document.body.classList.remove('theme-amber', 'theme-white');
       if (theme === 'amber') document.body.classList.add('theme-amber');
@@ -320,9 +293,7 @@
       btn.addEventListener('click', () => setTheme(btn.dataset.theme));
     });
 
-    // Load saved theme
-    const savedTheme = localStorage.getItem('terminal_theme') || 'green';
-    setTheme(savedTheme);
+    setTheme(localStorage.getItem('terminal_theme') || 'green');
 
     function toggleModal(show) {
       if (show === undefined) {
@@ -336,27 +307,98 @@
 
     closeModalBtn.addEventListener('click', () => toggleModal(false));
 
+    function setCharAt(r, c, ch) {
+      if (r >= 0 && r < ROWS && c >= 0 && c < COLS) {
+        screen[r][c] = ch;
+      }
+    }
+
+    function scrollUp() {
+      screen.shift();
+      screen.push(Array(COLS).fill(' '));
+    }
+
+    function processANSICommand(cmd) {
+      // Cursor Position: \x1b[row;colH or \x1b[row;colf
+      let posMatch = cmd.match(/^\[(\d+)?;?(\d+)?([Hf])$/);
+      if (posMatch) {
+        let r = parseInt(posMatch[1] || "1", 10) - 1;
+        let c = parseInt(posMatch[2] || "1", 10) - 1;
+        cursorRow = Math.max(0, Math.min(ROWS - 1, r));
+        cursorCol = Math.max(0, Math.min(COLS - 1, c));
+        return;
+      }
+
+      // Erase Line from Cursor to End: \x1b[K or \x1b[0K
+      if (cmd === '[K' || cmd === '[0K') {
+        for (let c = cursorCol; c < COLS; c++) {
+          setCharAt(cursorRow, c, ' ');
+        }
+        return;
+      }
+
+      // Erase Entire Screen: \x1b[2J
+      if (cmd === '[2J') {
+        screen = Array.from({ length: ROWS }, () => Array(COLS).fill(' '));
+        cursorRow = 0;
+        cursorCol = 0;
+        return;
+      }
+
+      // Clear from Cursor to end of screen: \x1b[J
+      if (cmd === '[J' || cmd === '[0J') {
+        for (let c = cursorCol; c < COLS; c++) setCharAt(cursorRow, c, ' ');
+        for (let r = cursorRow + 1; r < ROWS; r++) {
+          screen[r] = Array(COLS).fill(' ');
+        }
+        return;
+      }
+    }
+
     function appendText(text) {
       for (let i = 0; i < text.length; i++) {
         const char = text[i];
+
+        if (inEscape) {
+          escapeBuffer += char;
+          // Check for ANSI command terminator
+          if (/[a-zA-Z]/.test(char)) {
+            processANSICommand(escapeBuffer);
+            inEscape = false;
+            escapeBuffer = "";
+          }
+          continue;
+        }
+
+        if (char === '\x1b') {
+          inEscape = true;
+          escapeBuffer = "";
+          continue;
+        }
 
         if (char === '\r') {
           cursorCol = 0;
         } else if (char === '\n') {
           cursorRow++;
           if (cursorRow >= ROWS) {
-            lines.shift();
-            lines.push("");
+            scrollUp();
             cursorRow = ROWS - 1;
           }
         } else if (char === '\b') {
           if (cursorCol > 0) cursorCol--;
-        } else {
-          let currentLine = lines[cursorRow] || "";
-          if (cursorCol < COLS) {
-            lines[cursorRow] = currentLine.substring(0, cursorCol) + char + currentLine.substring(cursorCol + 1);
-            cursorCol++;
+        } else if (char === '\t') {
+          cursorCol = Math.min(COLS - 1, (Math.floor(cursorCol / 8) + 1) * 8);
+        } else if (char.charCodeAt(0) >= 32) {
+          if (cursorCol >= COLS) {
+            cursorCol = 0;
+            cursorRow++;
+            if (cursorRow >= ROWS) {
+              scrollUp();
+              cursorRow = ROWS - 1;
+            }
           }
+          setCharAt(cursorRow, cursorCol, char);
+          cursorCol++;
         }
       }
       render();
@@ -365,13 +407,12 @@
     function render() {
       textGroup.innerHTML = '';
 
-      lines.forEach((line, rowIdx) => {
-        let padded = line.padEnd(COLS, ' ').substring(0, COLS);
-        
+      screen.forEach((lineArray, rowIdx) => {
+        let lineStr = lineArray.join('');
         const textNode = document.createElementNS("http://www.w3.org/2000/svg", "text");
         textNode.setAttribute("x", "0");
         textNode.setAttribute("y", (rowIdx + 1) * CHAR_HEIGHT - 4);
-        textNode.textContent = padded;
+        textNode.textContent = lineStr;
         textGroup.appendChild(textNode);
       });
 
@@ -379,7 +420,7 @@
       cursorElem.setAttribute("y", cursorRow * CHAR_HEIGHT);
     }
 
-    appendText("=== Pico CP/M Web Terminal (80x24) ===\r\n");
+    appendText("=== Pico CP/M Web Terminal (80x24 ANSI) ===\r\n");
     appendText("Press Ctrl+S to open connection settings.\r\n");
 
     if (!('serial' in navigator)) {
@@ -418,8 +459,7 @@
             break;
           }
           if (value) {
-            let clean = value.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
-            appendText(clean);
+            appendText(value);
           }
         }
 
