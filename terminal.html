@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pico CP/M Web Terminal (Bezel Framed 80x24)</title>
+  <title>Pico CP/M Web Terminal (Padded Bezel 80x24)</title>
   <style>
     * { box-sizing: border-box; }
     html, body {
@@ -38,7 +38,7 @@
     button:disabled { background-color: #444; cursor: not-allowed; }
     #status { font-size: 14px; color: #aaa; }
 
-    /* Outer Container - No border here, lets the letterboxing sit outside */
+    /* Outer Container */
     .terminal-container {
       flex: 1;
       width: 100%;
@@ -50,15 +50,11 @@
       overflow: hidden;
     }
 
-    /* 
-       The SVG IS the monitor screen. 
-       The bezel border and glow are applied directly to it.
-    */
+    /* SVG Monitor Screen with Bezel */
     svg {
       max-width: 100%;
       max-height: 100%;
       background-color: #000000;
-      /* CRT Monitor Bezel Frame */
       border: 3px solid #444444;
       border-radius: 6px;
       box-shadow: 0 0 15px rgba(0, 0, 0, 0.9), inset 0 0 10px rgba(0, 0, 0, 0.8);
@@ -86,8 +82,8 @@
   </header>
 
   <div class="terminal-container" id="termFrame" tabindex="0">
-    <!-- ViewBox locked tightly to 80 cols * 9.6px (768) by 24 rows * 19.2px (460.8) -->
-    <svg viewBox="0 0 768 460.8" preserveAspectRatio="xMidYMid meet" id="svgTerm">
+    <!-- ViewBox padded by 10 units on all sides (-10 -10 offset with expanded 788x480.8 dimensions) -->
+    <svg viewBox="-10 -10 788 480.8" preserveAspectRatio="xMidYMid meet" id="svgTerm">
       <g id="textGroup"></g>
       <!-- Blinking Cursor -->
       <rect id="cursorElem" class="cursor" x="0" y="0" width="9.6" height="18" />
@@ -154,7 +150,7 @@
       cursorElem.setAttribute("y", cursorRow * CHAR_HEIGHT);
     }
 
-    appendText("=== Pico CP/M Web Terminal (Centered 80x24) ===\r\n");
+    appendText("=== Pico CP/M Web Terminal (Padded 80x24) ===\r\n");
 
     if (!('serial' in navigator)) {
       appendText("[ERROR] Web Serial API is NOT supported in this browser!\r\n");
