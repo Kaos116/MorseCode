@@ -6,6 +6,30 @@
   <title>Pico CP/M Web Terminal (Modal Controls)</title>
   <style>
     * { box-sizing: border-box; }
+
+    /* CSS Theme Variables (Defaults to Green) */
+    :root {
+      --term-color: #00ff00;
+      --term-dim: #005500;
+      --term-glow: rgba(0, 255, 0, 0.3);
+      --term-glow-bright: rgba(0, 255, 0, 0.8);
+    }
+
+    /* Color Themes */
+    body.theme-amber {
+      --term-color: #ffb000;
+      --term-dim: #885500;
+      --term-glow: rgba(255, 176, 0, 0.3);
+      --term-glow-bright: rgba(255, 176, 0, 0.8);
+    }
+
+    body.theme-white {
+      --term-color: #e0e0e0;
+      --term-dim: #666666;
+      --term-glow: rgba(224, 224, 224, 0.3);
+      --term-glow-bright: rgba(224, 224, 224, 0.8);
+    }
+
     html, body {
       background-color: #121212;
       color: #e0e0e0;
@@ -29,7 +53,7 @@
       align-items: center;
       overflow: hidden;
       position: relative;
-      outline: none; /* Removes the focus ring around the container */
+      outline: none;
     }
 
     /* SVG Monitor Screen with Bezel */
@@ -40,18 +64,18 @@
       border: 3px solid #444444;
       border-radius: 6px;
       box-shadow: 0 0 15px rgba(0, 0, 0, 0.9), inset 0 0 10px rgba(0, 0, 0, 0.8);
-      outline: none; /* Prevents focus rings on the SVG itself */
+      outline: none;
     }
 
     text {
       font-family: 'Courier New', Courier, monospace;
       font-size: 16px;
-      fill: #00FF00;
+      fill: var(--term-color);
       white-space: pre;
     }
 
     .cursor {
-      fill: #00FF00;
+      fill: var(--term-color);
       animation: blink 1s infinite;
     }
     @keyframes blink { 50% { opacity: 0; } }
@@ -81,27 +105,28 @@
     /* Retro Terminal Modal Window */
     .modal-box {
       background-color: #0a0a0a;
-      border: 2px solid #00ff00;
+      border: 2px solid var(--term-color);
       border-radius: 4px;
       padding: 24px 30px;
       width: 380px;
-      box-shadow: 0 0 25px rgba(0, 255, 0, 0.3), inset 0 0 10px rgba(0, 0, 0, 0.9);
+      box-shadow: 0 0 25px var(--term-glow), inset 0 0 10px rgba(0, 0, 0, 0.9);
       display: flex;
       flex-direction: column;
       gap: 16px;
       font-family: 'Courier New', Courier, monospace;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
     .modal-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid #005500;
+      border-bottom: 1px solid var(--term-dim);
       padding-bottom: 8px;
     }
 
     .modal-title {
-      color: #00ff00;
+      color: var(--term-color);
       font-size: 14px;
       font-weight: bold;
       letter-spacing: 1px;
@@ -111,7 +136,7 @@
     .close-btn {
       background: none;
       border: none;
-      color: #008800;
+      color: var(--term-dim);
       font-size: 16px;
       font-weight: bold;
       cursor: pointer;
@@ -120,14 +145,62 @@
     }
 
     .close-btn:hover {
-      color: #00ff00;
+      color: var(--term-color);
     }
+
+    /* Color Selection Group */
+    .setting-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .setting-label {
+      font-size: 11px;
+      color: var(--term-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .color-options {
+      display: flex;
+      gap: 10px;
+    }
+
+    .color-btn {
+      flex: 1;
+      background-color: #121212;
+      border: 1px solid #444;
+      padding: 6px 0;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .color-btn[data-theme="green"] { color: #00ff00; }
+    .color-btn[data-theme="amber"] { color: #ffb000; }
+    .color-btn[data-theme="white"] { color: #e0e0e0; }
+
+    .color-btn:hover {
+      border-color: #888;
+    }
+
+    .color-btn.active {
+      border-width: 2px;
+    }
+    .color-btn[data-theme="green"].active { border-color: #00ff00; background-color: rgba(0, 255, 0, 0.1); }
+    .color-btn[data-theme="amber"].active { border-color: #ffb000; background-color: rgba(255, 176, 0, 0.1); }
+    .color-btn[data-theme="white"].active { border-color: #e0e0e0; background-color: rgba(224, 224, 224, 0.1); }
 
     /* Retro Terminal Button Styling */
     .connect-btn {
       background-color: #0d0d0d;
-      color: #00ff00;
-      border: 2px solid #00ff00;
+      color: var(--term-color);
+      border: 2px solid var(--term-color);
       padding: 10px 18px;
       font-family: 'Courier New', Courier, monospace;
       font-size: 13px;
@@ -136,15 +209,15 @@
       text-transform: uppercase;
       border-radius: 3px;
       cursor: pointer;
-      box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+      box-shadow: 0 0 8px var(--term-glow);
       transition: all 0.15s ease-in-out;
       width: 100%;
     }
 
     .connect-btn:hover:not(:disabled) {
-      background-color: #00ff00;
+      background-color: var(--term-color);
       color: #000000;
-      box-shadow: 0 0 15px rgba(0, 255, 0, 0.8);
+      box-shadow: 0 0 15px var(--term-glow-bright);
     }
 
     .connect-btn:active:not(:disabled) {
@@ -154,8 +227,8 @@
 
     .connect-btn:disabled {
       background-color: #1a1a1a;
-      color: #005500;
-      border-color: #005500;
+      color: var(--term-dim);
+      border-color: var(--term-dim);
       box-shadow: none;
       cursor: not-allowed;
     }
@@ -168,7 +241,7 @@
 
     .modal-footer {
       font-size: 11px;
-      color: #006600;
+      color: var(--term-dim);
       text-align: center;
       margin-top: 4px;
     }
@@ -194,6 +267,16 @@
 
       <div class="status-text" id="status">Status: Disconnected</div>
 
+      <!-- Theme Selector -->
+      <div class="setting-group">
+        <span class="setting-label">Display Color</span>
+        <div class="color-options">
+          <button class="color-btn active" data-theme="green">GREEN</button>
+          <button class="color-btn" data-theme="amber">AMBER</button>
+          <button class="color-btn" data-theme="white">WHITE</button>
+        </div>
+      </div>
+
       <button class="connect-btn" id="connectBtn">Connect to Pico CP/M</button>
 
       <div class="modal-footer">Press [Ctrl+S] or [ESC] to toggle</div>
@@ -208,6 +291,7 @@
     const cursorElem = document.getElementById('cursorElem');
     const controlModal = document.getElementById('controlModal');
     const closeModalBtn = document.getElementById('closeModalBtn');
+    const colorBtns = document.querySelectorAll('.color-btn');
 
     const COLS = 80;
     const ROWS = 24;
@@ -218,6 +302,27 @@
     let lines = Array(ROWS).fill(""); 
     let cursorCol = 0;
     let cursorRow = 0;
+
+    // Theme Switcher Logic
+    function setTheme(theme) {
+      document.body.classList.remove('theme-amber', 'theme-white');
+      if (theme === 'amber') document.body.classList.add('theme-amber');
+      if (theme === 'white') document.body.classList.add('theme-white');
+
+      colorBtns.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === theme);
+      });
+
+      localStorage.setItem('terminal_theme', theme);
+    }
+
+    colorBtns.forEach(btn => {
+      btn.addEventListener('click', () => setTheme(btn.dataset.theme));
+    });
+
+    // Load saved theme
+    const savedTheme = localStorage.getItem('terminal_theme') || 'green';
+    setTheme(savedTheme);
 
     function toggleModal(show) {
       if (show === undefined) {
@@ -290,7 +395,7 @@
         await port.open({ baudRate: 115200 });
 
         statusText.innerText = "Status: Connected";
-        statusText.style.color = "#00ff00";
+        statusText.style.color = "var(--term-color)";
         connectBtn.disabled = true;
         
         toggleModal(false);
